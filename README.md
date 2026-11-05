@@ -44,7 +44,7 @@ Revenue is not profit (no cost data). No forecasting. Correlation with satisfact
 | `streamlit_app.py` | Screen layout and interaction |
 | `analytics.py` | Metrics and analytical functions (no Streamlit code) |
 | `config.py` | Every file and column name the app depends on |
-| `theme.py` | Green theme and forest background (looks only) |
+| `theme.py` | Design system: colors, type, chart template, page building blocks (looks only, no math) |
 | `data_prep.py` | Joins the uploaded files, with merge checks |
 | `docs/` | Grain, validation, agent tests, reflection |
 | `agent.py` | Tool registry, dispatcher, and routers |

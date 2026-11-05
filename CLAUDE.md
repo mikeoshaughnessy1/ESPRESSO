@@ -19,7 +19,7 @@ Repo: https://github.com/mikeoshaughnessy1/ESPRESSO (branch main; pushing redepl
 - Cache must stay keyed on file contents (the $1,000 test depends on it).
 
 ## Files
-- `config.py`: every file and column name. `data_prep.py`: joins with `check_merge`. `analytics.py`: the math. `agent.py`: tools, dispatcher, rules router, Gemini router. `streamlit_app.py`: layout. `theme.py`: green look.
+- `config.py`: every file and column name. `data_prep.py`: joins with `check_merge`. `analytics.py`: the math. `agent.py`: tools, dispatcher, rules router, Gemini router. `streamlit_app.py`: layout (left-rail nav, 4 sections). `theme.py`: design system (tokens, CSS, chart template, HTML blocks; looks only, no math).
 - `data/`: original E-Presso data (Sales/Products/Categories exported from the Access db inside our .pbix; Stores CSV is tab-delimited; Survey has headers on row 3).
 - `docs/`: grain and merges, validation, $1,000 test, agent tests, defense study guide, reflection template.
 
