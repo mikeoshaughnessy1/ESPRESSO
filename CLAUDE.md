@@ -27,5 +27,5 @@ Repo: https://github.com/mikeoshaughnessy1/ESPRESSO (branch main; pushing redepl
 Total $42,174,440. Website $27,218,880. Brick & Mortar $14,955,560. By year: 2025 7,181,750; 2026 8,016,950; 2027 8,824,720; 2028 8,969,470; 2029 9,181,550.
 
 ## Status (update after each session)
-- Done: deployed app, real joins, 6 charts, filters, 6 tools, rules assistant, Gemini path (tested with a mock only), 26 tests, agent tests 1-4 passed live, Test 2 fix and retest documented.
-- To do: add a Gemini key and re-run the 5 tests; $1,000 test on the live app with screenshots; confirm Power BI numbers from our own report; reflection (our words); contribution table; teammate commits.
+- Done: deployed app, real joins, 6 charts, filters, 6 tools, rules assistant, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite), 26 tests, agent tests 1-4 passed live in both modes, two fix-and-retests documented.
+- To do: Test 5 and the $1,000 test on the live app with screenshots; confirm Power BI numbers from our own report; reflection (our words); contribution table; teammate commits.
