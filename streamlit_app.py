@@ -90,10 +90,13 @@ if sales is None:  # can't build the dashboard at all: show the problems up top
 
 # New data = new answers. Clear assistant history so old numbers can't linger.
 data_id = fingerprint.hexdigest()[:8]
-if st.session_state.get('data_id') not in (None, data_id):
+data_changed = st.session_state.get('data_id') not in (None, data_id)
+if data_changed:
     st.session_state['history'] = []
-    st.toast('New data loaded. Assistant history cleared.')
+    st.toast('New data loaded. All numbers recalculated; assistant history cleared.',
+             icon='📂', duration=10)
 st.session_state['data_id'] = data_id
+uploaded = {k: name for k, (origin, name, _) in sources.items() if origin == 'uploaded'}
 
 with side_filters:
     st.header('Filters')
@@ -119,6 +122,15 @@ with side_sources:
 
 view, _ = analytics._apply_filters(sales, sidebar_filters)
 scope = agent.scope_text(sidebar_filters, sidebar_filters)
+
+# Big banner for as long as uploaded data is in use, so it's never unclear which data is shown.
+if uploaded:
+    which = ', '.join(f'**{k.title()}** ({name})' for k, name in uploaded.items())
+    st.success(f'**Using uploaded data.** {which} replaced the original. '
+               f'Sales revenue sum is now **\\${sales[C.REVENUE].sum():,.2f}**. '
+               'Remove the upload in the sidebar to go back to the original data.', icon='📂')
+elif data_changed:
+    st.info('**Back to the original data.** All numbers recalculated.', icon='↩️')
 
 TABS = ['Dashboard', 'Data and quality', 'Validation', 'Assistant']
 if notes:  # small link to the data notes instead of a warning on every page
