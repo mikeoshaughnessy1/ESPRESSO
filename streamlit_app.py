@@ -122,7 +122,7 @@ scope = agent.scope_text(sidebar_filters, sidebar_filters)
 
 TABS = ['Dashboard', 'Data and quality', 'Validation', 'Assistant']
 if notes:  # small link to the data notes instead of a warning on every page
-    st.button(f"⚠️ {len(notes)} data note{'s' if len(notes) > 1 else ''}: see Data and quality",
+    st.button(f"⚠️ {len(notes)} data note{'s' if len(notes) > 1 else ''}: see bottom of Data and quality",
               type='tertiary',
               on_click=lambda: st.session_state.update(main_tabs='Data and quality'))
 tab_dash, tab_data, tab_valid, tab_assistant = st.tabs(TABS, key='main_tabs', on_change='rerun')
@@ -191,12 +191,6 @@ with tab_dash:
 
 # ---------------------------------------------------------- data + quality
 with tab_data:
-    st.subheader('Data issues found')
-    if notes:
-        for p in notes:
-            st.warning(p)
-    else:
-        st.success('No missing values, unmatched keys, or duplicates found in the loaded data.')
     st.subheader('Source tables')
     for name, df in files.items():
         prof = analytics.profile_table(df)
@@ -214,7 +208,12 @@ with tab_data:
         st.dataframe(pd.DataFrame(built['merges']), hide_index=True)
     else:
         st.caption('No merges yet. Add them in data_prep.build_sales_table().')
-    st.subheader('Prepared sales table quality')
+    st.subheader('Data issues found')
+    if notes:
+        st.markdown('\n'.join(f'- {p}' for p in notes))
+    else:
+        st.markdown('No missing values, unmatched keys, or duplicates found in the loaded data.')
+    st.caption('Prepared sales table check (duplicates and blanks after the joins):')
     st.json(analytics.data_quality_report(sales).to_dict()['value'])
 
 # -------------------------------------------------------------- validation
