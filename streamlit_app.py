@@ -80,10 +80,11 @@ for key, (origin, name, data) in sources.items():
         st.stop()
 
 built = data_prep.build_sales_table(files)
-for p in built['problems']:
-    st.warning(p)
+notes = built['problems']  # data-quality findings, shown on the Data and quality tab
 sales = built['sales']
-if sales is None:
+if sales is None:  # can't build the dashboard at all: show the problems up top
+    for p in notes:
+        st.warning(p)
     st.error('The sales table could not be built. See the messages above.')
     st.stop()
 
@@ -119,8 +120,12 @@ with side_sources:
 view, _ = analytics._apply_filters(sales, sidebar_filters)
 scope = agent.scope_text(sidebar_filters, sidebar_filters)
 
-tab_dash, tab_data, tab_valid, tab_assistant = st.tabs(
-    ['Dashboard', 'Data and quality', 'Validation', 'Assistant'])
+TABS = ['Dashboard', 'Data and quality', 'Validation', 'Assistant']
+if notes:  # small link to the data notes instead of a warning on every page
+    st.button(f"⚠️ {len(notes)} data note{'s' if len(notes) > 1 else ''}: see Data and quality",
+              type='tertiary',
+              on_click=lambda: st.session_state.update(main_tabs='Data and quality'))
+tab_dash, tab_data, tab_valid, tab_assistant = st.tabs(TABS, key='main_tabs', on_change='rerun')
 
 # -------------------------------------------------------------- dashboard
 with tab_dash:
@@ -186,6 +191,12 @@ with tab_dash:
 
 # ---------------------------------------------------------- data + quality
 with tab_data:
+    st.subheader('Data issues found')
+    if notes:
+        for p in notes:
+            st.warning(p)
+    else:
+        st.success('No missing values, unmatched keys, or duplicates found in the loaded data.')
     st.subheader('Source tables')
     for name, df in files.items():
         prof = analytics.profile_table(df)
