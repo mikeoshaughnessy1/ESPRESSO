@@ -34,7 +34,7 @@ def cached_load(file_bytes: bytes, filename: str, sheet_name, skiprows):
 with st.sidebar:
     T.html('<div class="ep-mark">E&#8209;Presso<span>.</span></div>'
            '<div class="ep-label" style="margin:0.35rem 0 1rem">Revenue analyst</div>')
-    section = st.radio('Section', SECTIONS, key='section', label_visibility='collapsed')
+nav_slot = st.sidebar.container()
 side_filters = st.sidebar.container()
 side_sources = st.sidebar.container()
 with st.sidebar:
@@ -103,6 +103,11 @@ st.session_state['data_id'] = data_id
 uploaded = {k: name for k, (origin, name, _) in sources.items() if origin == 'uploaded'}
 
 
+with nav_slot:
+    nav_label = {SECTIONS[1]: f'{SECTIONS[1]}   ·{len(notes)}' if notes else SECTIONS[1]}
+    section = st.radio('Section', SECTIONS, key='section', label_visibility='collapsed',
+                       format_func=lambda s: nav_label.get(s, s))
+
 with side_filters:
     st.header('Filters')
     sidebar_filters = {}
@@ -144,9 +149,6 @@ def top_notices():
                f'<b>{T.money(sales[C.REVENUE].sum())}</b>. Remove the upload in the sidebar to go back.')
     elif data_changed:
         T.note('<span class="ep-label">Original data restored</span><br>All numbers recalculated.')
-    if notes and section != SECTIONS[1]:
-        st.button(f"{len(notes)} data note{'s' if len(notes) > 1 else ''} → see Data & quality",
-                  type='tertiary', on_click=lambda: st.session_state.update(section=SECTIONS[1]))
 
 
 # =================================================================== overview
@@ -160,10 +162,13 @@ if section == SECTIONS[0]:
     deck = 'Every figure on this page is calculated from the loaded files.'
     if not by_channel.error and by_channel.value:
         top = max(by_channel.value.items(), key=lambda kv: kv[1]['revenue'])
-        deck = f'{top[0]} sales carried {top[1]["share_pct"]}% of revenue in scope.'
+        deck = (f'{top[0]} carries {top[1]["share_pct"]:.1f}% of revenue in scope.' if len(by_channel.value) > 1
+                else f'All revenue in scope is {top[0].lower()}.')
         if not growth.error and growth.value:
-            moves = '; '.join(f'{k} {v["pct_change"]:+.1f}%' for k, v in growth.value.items())
-            deck += f' Change from first to last year: {moves}.'
+            first = years_all[0]
+            moves = [f'{k} {"grew" if v["pct_change"] >= 0 else "fell"} {abs(v["pct_change"]):.1f}%'
+                     for k, v in sorted(growth.value.items(), key=lambda kv: -kv[1]['pct_change'])]
+            deck += f' Since {first}, ' + (' while '.join(moves) if len(moves) == 2 else ', '.join(moves)) + '.'
     T.masthead(f'E-Presso · Revenue report · {span}', f'Revenue, {span}', T.escape(deck))
     T.scope_bar([('Scope', scope), ('Data', data_label), ('Version', data_id)])
     top_notices()
@@ -171,50 +176,52 @@ if section == SECTIONS[0]:
     if total.error:
         st.error(total.error)
         st.stop()
+    yearly = analytics.get_revenue_by(sales, C.YEAR, sidebar_filters)
     stats = []
-    for name, v in (by_channel.value or {}).items():
-        stats.append((name, T.money_short(v['revenue']), f'{v["share_pct"]}% of revenue'))
+    for name, v in sorted((by_channel.value or {}).items(), key=lambda kv: -kv[1]['revenue']):
+        stats.append((name, T.money_short(v['revenue']), f'{v["share_pct"]:.1f}% share'))
+    if not yearly.error and len(yearly.value or {}) > 1:
+        ys = sorted(yearly.value, key=int)
+        a, b = yearly.value[ys[0]]['revenue'], yearly.value[ys[-1]]['revenue']
+        stats.append((f'Since {ys[0]}', f'{(b - a) / a * 100:+.1f}%' if a else 'n/a',
+                      f'{ys[-1]} vs {ys[0]}'))
     if not month_share.error and month_share.value:
         pk = max(month_share.value.items(), key=lambda kv: kv[1]['revenue'])
-        stats.append(('Peak month', MONTHS[int(pk[0]) - 1], f'{pk[1]["share_pct"]}% of revenue'))
-    n_stores = view[C.STORE].nunique() if C.STORE in view.columns else 0
-    stats.append(('Locations', str(n_stores), 'incl. website' if 'Website' in set(view[C.CHANNEL]) else 'stores'))
+        stats.append(('Peak month', MONTHS[int(pk[0]) - 1], f'{pk[1]["share_pct"]:.1f}% of revenue'))
     T.hero('Total revenue', T.money(total.value), f'{total.rows_used:,} line items · revenue, not profit', stats)
 
     # ---- Fig 1 + Fig 2: asymmetric pair
     left, right = st.columns([7, 5], gap='large')
-    yearly = analytics.get_revenue_by(sales, C.YEAR, sidebar_filters)
     with left:
-        T.figure_head(1, 'Revenue by year', 'The latest year is marked in terracotta.')
+        T.figure_head(1, 'Revenue by year, by channel',
+                      '<span class="ep-key ep-key-web"></span>Website &nbsp;'
+                      '<span class="ep-key"></span>Brick &amp; mortar. Total labeled above each year.')
         if not yearly.error and yearly.value:
             yrs = sorted(yearly.value, key=int)
-            vals = [yearly.value[y]['revenue'] for y in yrs]
-            fig = go.Figure(go.Bar(
-                x=yrs, y=vals, marker=dict(color=[T.INK] * (len(yrs) - 1) + [T.ACCENT], cornerradius=2),
-                text=[''] * (len(yrs) - 1) + [T.money_short(vals[-1])], textposition='outside',
-                textfont=dict(color=T.ACCENT, size=12), cliponaxis=False,
-                hovertemplate='%{x}<br>$%{y:,.0f}<extra></extra>'))
-            fig.update_layout(height=300, xaxis=dict(type='category'), yaxis=dict(tickprefix='$', tickformat='~s'))
+            fig = go.Figure()
+            for ch in sorted(by_channel.value or {}, key=lambda c: T.channel_color(c) == T.ACCENT):
+                part = analytics.get_revenue_by(sales, C.YEAR, {**sidebar_filters, C.CHANNEL: ch})
+                vals = [(part.value or {}).get(y, {}).get('revenue', 0) for y in yrs] if not part.error else []
+                fig.add_trace(go.Bar(x=yrs, y=vals, name=ch, marker=dict(color=T.channel_color(ch),
+                                     line=dict(color=T.PAPER, width=1.5)),
+                                     hovertemplate=f'{ch} · %{{x}}<br>$%{{y:,.0f}}<extra></extra>'))
+            for i, y in enumerate(yrs):  # category axis: place by position, or '2025' is read as index 2025
+                fig.add_annotation(x=i, y=yearly.value[y]['revenue'], text=T.money_short(yearly.value[y]['revenue']),
+                                   showarrow=False, yshift=11, font=dict(family='JetBrains Mono', size=10, color=T.INK_2))
+            fig.update_layout(barmode='stack', height=300, bargap=0.55, xaxis=dict(type='category'),
+                              yaxis=dict(tickprefix='$', tickformat='~s'))
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with right:
-        T.figure_head(2, 'Share by channel', 'Website versus brick &amp; mortar, revenue in scope.')
+        T.figure_head(2, 'Share by channel', 'Revenue in scope.')
         if not by_channel.error and by_channel.value:
-            fig = go.Figure()
             items = sorted(by_channel.value.items(), key=lambda kv: -kv[1]['revenue'])
-            for i, (name, v) in enumerate(items):
-                fig.add_trace(go.Bar(
-                    y=[''], x=[v['share_pct']], orientation='h', name=name,
-                    marker=dict(color=T.ACCENT if i == 0 else T.INK, line=dict(color=T.PAPER, width=2)),
-                    hovertemplate=f'{name}<br>{v["share_pct"]}% · ${v["revenue"]:,.0f}<extra></extra>'))
-            fig.update_layout(barmode='stack', height=110, margin=dict(l=0, r=0, t=4, b=4),
-                              xaxis=dict(visible=False, range=[0, 100]), yaxis=dict(visible=False))
-            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+            T.share_rule([(n, v['share_pct'], T.channel_color(n)) for n, v in items])
             T.table([{'Channel': n, 'Revenue': T.money(v['revenue']), 'Share': f'{v["share_pct"]}%'}
                      for n, v in items], numeric=('Revenue', 'Share'))
 
     # ---- Fig 3: full width
     T.figure_head(3, 'Monthly revenue, year over year',
-                  'Each line is one year. Older years in gray, the latest in terracotta.')
+                  'Each line is one year: older years in lighter gray, the latest in ink. November and December carry the year.')
     monthly = (view.dropna(subset=[C.YEAR, C.MONTH])
                .groupby([C.YEAR, C.MONTH])[C.REVENUE].sum().reset_index())
     if len(monthly):
@@ -223,17 +230,17 @@ if section == SECTIONS[0]:
         colors = {}
         for i, y in enumerate(yrs):
             latest = i == len(yrs) - 1
-            ramp = T.YEAR_RAMP[max(0, len(T.YEAR_RAMP) - (len(yrs) - 1) + i)] if not latest else T.ACCENT
+            ramp = T.YEAR_RAMP[max(0, len(T.YEAR_RAMP) - (len(yrs) - 1) + i)] if not latest else T.INK
             colors[int(y)] = ramp
             part = monthly[monthly[C.YEAR] == y].sort_values(C.MONTH)
             fig.add_trace(go.Scatter(
-                x=part[C.MONTH], y=part[C.REVENUE], mode='lines+markers', name=str(int(y)),
-                line=dict(color=ramp, width=2.5 if latest else 1.5),
-                marker=dict(size=8 if latest else 6, color=ramp, line=dict(color=T.PAPER, width=2)),
+                x=part[C.MONTH], y=part[C.REVENUE], mode='lines+markers' if latest else 'lines', name=str(int(y)),
+                line=dict(color=ramp, width=2.25 if latest else 1.25),
+                marker=dict(size=7, color=ramp, line=dict(color=T.PAPER, width=2)),
                 hovertemplate=f'{int(y)} · %{{x}}<br>$%{{y:,.0f}}<extra></extra>'))
         last = monthly[monthly[C.YEAR] == yrs[-1]].sort_values(C.MONTH).iloc[-1]
         fig.add_annotation(x=last[C.MONTH], y=last[C.REVENUE], text=str(int(yrs[-1])), showarrow=False,
-                           xanchor='left', xshift=8, font=dict(size=12, color=T.ACCENT))
+                           xanchor='left', xshift=8, font=dict(family='JetBrains Mono', size=11, color=T.INK))
         fig.update_layout(height=360, margin=dict(l=8, r=48, t=28, b=8), hovermode='x unified',
                           showlegend=len(yrs) > 1,
                           legend=dict(orientation='h', x=0, y=1.08, font=dict(size=11, color=T.INK_2)),
@@ -251,10 +258,11 @@ if section == SECTIONS[0]:
             peak = vals.index(max(vals))
             fig = go.Figure(go.Bar(
                 x=[MONTHS[int(k) - 1] for k, _ in ms], y=vals, cliponaxis=False,
-                marker=dict(color=[T.ACCENT if i == peak else T.INK for i in range(len(vals))], cornerradius=2),
-                text=[f'{v}%' if i == peak else '' for i, v in enumerate(vals)], textposition='outside',
-                textfont=dict(color=T.ACCENT, size=12), hovertemplate='%{x}<br>%{y}% of revenue<extra></extra>'))
-            fig.update_layout(height=300, yaxis=dict(ticksuffix='%'))
+                marker=dict(color=[T.INK if i == peak else T.MUTED for i in range(len(vals))], cornerradius=1),
+                text=[f'{v:.1f}%' if i == peak else '' for i, v in enumerate(vals)], textposition='outside',
+                textfont=dict(family='JetBrains Mono', color=T.INK, size=11),
+                hovertemplate='%{x}<br>%{y}% of revenue<extra></extra>'))
+            fig.update_layout(height=300, bargap=0.45, yaxis=dict(ticksuffix='%'))
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
     with right:
         T.figure_head(5, 'Revenue by category',
@@ -268,12 +276,11 @@ if section == SECTIONS[0]:
                       + (f"{change[k]['pct_change']:+.1f}%" if k in change else '') for k, v in items]
             fig = go.Figure(go.Bar(
                 y=[k for k, _ in items], x=[v['revenue'] for _, v in items], orientation='h',
-                marker=dict(color=[T.ACCENT if i == len(items) - 1 else T.INK for i in range(len(items))],
-                            cornerradius=2),
+                marker=dict(color=T.INK, cornerradius=1),
                 text=labels, textposition='outside', cliponaxis=False,
                 textfont=dict(family='JetBrains Mono, monospace', size=11, color=T.INK_2),
                 hovertemplate='%{y}<br>$%{x:,.0f}<extra></extra>'))
-            fig.update_layout(height=300, margin=dict(l=8, r=130, t=12, b=8), bargap=0.4,
+            fig.update_layout(height=300, margin=dict(l=8, r=130, t=12, b=8), bargap=0.55,
                               xaxis=dict(visible=False), yaxis=dict(tickfont=dict(color=T.INK, size=12)))
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
             if cgrowth is not None and cgrowth.error:
@@ -285,7 +292,7 @@ if section == SECTIONS[0]:
         web = next((v for k, v in (stores.value or {}).items() if k.startswith('SH00')), None)
         cap = (f"The website is {web['share_pct']}% of revenue in scope, so it is hidden by default "
                'to keep the stores readable.') if web else 'Store revenue in scope.'
-        T.figure_head(6, 'Revenue by location', cap)
+        T.figure_head(6, 'Revenue by location', cap + ' Each bar shows revenue and the change since the first year.')
         with_web = st.checkbox('Include the website (SH00)', value=False)
         if not stores.error and stores.value:
             rows = [(k, v['revenue']) for k, v in stores.value.items()
@@ -294,17 +301,22 @@ if section == SECTIONS[0]:
                 st.caption('Only the website is in scope. Tick the box to show it.')
             else:
                 rows.sort(key=lambda r: r[1])
+                sg = analytics.get_growth(sales, C.STORE, sidebar_filters)
+                chg = {} if sg.error else sg.value
                 fig = go.Figure(go.Bar(
                     y=[r[0] for r in rows], x=[r[1] for r in rows], orientation='h',
-                    marker=dict(color=[T.ACCENT if i == len(rows) - 1 else T.INK for i in range(len(rows))],
-                                cornerradius=2),
+                    marker=dict(color=[T.ACCENT if r[0].startswith('SH00') else T.INK for r in rows], cornerradius=1),
+                    text=[f"{T.money_short(r[1])}   " + (f"{chg[r[0]]['pct_change']:+.1f}%" if r[0] in chg else '')
+                          for r in rows], textposition='outside', cliponaxis=False,
+                    textfont=dict(family='JetBrains Mono, monospace', size=10, color=T.INK_2),
                     hovertemplate='%{y}<br>$%{x:,.0f}<extra></extra>'))
-                fig.update_layout(height=max(220, 26 * len(rows) + 40), bargap=0.3,
-                                  xaxis=dict(tickprefix='$', tickformat='~s', side='top', gridcolor=T.RULE,
-                                             showgrid=True, linecolor=T.RULE),
+                fig.update_layout(height=max(220, 24 * len(rows) + 40), bargap=0.5,
+                                  margin=dict(l=8, r=120, t=8, b=8),
+                                  xaxis=dict(visible=False),
                                   yaxis=dict(gridcolor='rgba(0,0,0,0)', tickfont=dict(color=T.INK, size=11)))
                 st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-    T.html(f'<p class="ep-meta" style="margin-top:1.5rem">{analytics.REVENUE_CAVEAT}</p>')
+    T.colophon([('Source', data_label), ('Method', 'Sum of the Revenue column after joining Sales to '
+                'Stores, Products and Categories; every join checked'), ('Caveat', analytics.REVENUE_CAVEAT)])
 
 # ============================================================= data + quality
 elif section == SECTIONS[1]:
@@ -352,6 +364,8 @@ elif section == SECTIONS[1]:
                   'Unmatched': m.get('unmatched_rows', 0), 'Changed?': 'yes' if m['changed'] else 'no'}
                  for m in built['merges']],
                 numeric=('Rows before', 'Rows after', 'Revenue before', 'Revenue after', 'Unmatched'))
+    T.colophon([('Source', data_label), ('Grain', 'Sales: one store x one product x one month'),
+                ('Rule', 'Lookup tables must have one row per key, or revenue is duplicated')])
 
 # ================================================================ validation
 elif section == SECTIONS[2]:
@@ -377,6 +391,8 @@ elif section == SECTIONS[2]:
                  for m in piv.index], numeric=tuple(str(int(y)) for y in piv.columns))
     T.html('<p class="ep-meta">Independent check: <code>python docs/independent_check.py</code> '
            'recomputes these from the raw Sales file without any app code.</p>')
+    T.colophon([('Source', data_label), ('Compare with', 'Our E-Presso Power BI report'),
+                ('Caveat', analytics.REVENUE_CAVEAT)])
 
 # ================================================================= assistant
 else:
@@ -421,8 +437,11 @@ else:
     def value_rows(value):
         """The tool result as table rows (same numbers as the Method log, just readable)."""
         if isinstance(value, dict) and value and all(isinstance(v, dict) for v in value.values()):
+            items = list(value.items())
+            if all('pct_change' in v for _, v in items):  # growth: biggest decline first, so the answer leads
+                items.sort(key=lambda kv: kv[1]['pct_change'])
             return [{'': str(k), **{c.replace('_', ' ').title(): fmt(c, x) for c, x in v.items()}}
-                    for k, v in value.items()]
+                    for k, v in items]
         if isinstance(value, dict):
             return [{'Measure': k.replace('_', ' ').title(), 'Value': fmt(k, v)} for k, v in value.items()
                     if not isinstance(v, (dict, list))]

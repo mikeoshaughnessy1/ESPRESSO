@@ -14,6 +14,7 @@ INK_2 = '#77766F'      # secondary text
 RULE = '#D6D1C6'       # borders and dividers
 ACCENT = '#B84A32'     # terracotta, used sparingly
 WHITE = '#FFFFFF'
+MUTED = '#B9B4A9'      # de-emphasized marks (context bars next to the one that matters)
 
 SERIF = "'DM Serif Display', Georgia, serif"
 SANS = "'Inter', system-ui, -apple-system, sans-serif"
@@ -23,6 +24,11 @@ MONO = "'JetBrains Mono', ui-monospace, Menlo, monospace"
 # lightness, chroma, adjacent colorblind separation, and contrast. Lines also carry
 # direct end labels because terracotta/ochre are close for some colorblind readers.
 CATEGORICAL = ['#B84A32', '#2B6CA3', '#987012', '#9A4D8E', '#2F8A5F']
+# Terracotta has exactly one meaning across the app: the website channel.
+def channel_color(name: str) -> str:
+    return ACCENT if 'web' in str(name).lower() else INK
+
+
 # Years: one hue, light to dark, so order reads as time. The latest year gets the accent.
 YEAR_RAMP = ['#C9C4B8', '#ADA89C', '#8F8B80', '#5E5C55']
 
@@ -79,6 +85,20 @@ h1 *, h2 *, h3 * {{ font-family:inherit !important; font-weight:inherit !importa
 .ep-note {{ border-left:2px solid var(--accent); padding:0.55rem 0.9rem; background:var(--paper2); margin:0 0 1.4rem; font-size:0.92rem; }}
 .ep-section {{ font-family:{SERIF}; font-size:1.6rem; border-top:1px solid var(--ink); padding-top:0.7rem; margin:2rem 0 0.8rem; }}
 
+/* ---------- legend keys, share rule, colophon ---------- */
+.ep-key {{ display:inline-block; width:0.7rem; height:0.7rem; background:var(--ink); margin:0 0.35rem -0.05rem 0; }}
+.ep-key-web {{ background:var(--accent); }}
+.ep-share {{ margin:1.4rem 0 1.2rem; }}
+.ep-share-bar {{ display:flex; height:10px; gap:2px; }}
+.ep-share-bar > div {{ height:100%; }}
+.ep-share-labels {{ display:flex; gap:2px; margin-top:0.55rem; }}
+.ep-share-labels > div {{ min-width:0; }}
+.ep-share-pct {{ font-family:{SERIF}; font-size:1.9rem; line-height:1; }}
+.ep-colophon {{ display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:1.5rem; border-top:1px solid var(--ink);
+  margin-top:3.5rem; padding-top:0.8rem; }}
+.ep-colophon p {{ font-size:0.82rem; color:var(--ink2); margin:0.3rem 0 0; }}
+@media (max-width: 760px) {{ .ep-colophon {{ grid-template-columns:1fr; gap:0.8rem; }} }}
+
 /* ---------- tables ---------- */
 table.ep-table, table.ep-table th, table.ep-table td {{ border-left:none !important; border-right:none !important; border-top:none; }}
 table.ep-table {{ width:100%; border:none !important; border-collapse:collapse; font-size:0.9rem; margin:0.4rem 0 1.4rem; }}
@@ -108,7 +128,7 @@ table.ep-table tr:hover td {{ background:var(--paper2); }}
 [data-testid="stSidebar"] [data-testid="stRadioOption"]:hover {{ background:var(--paper); }}
 [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] {{ border-left-color:var(--accent); }}
 [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] p {{ color:var(--ink); font-weight:600; }}
-[data-testid="stSidebar"] [data-testid="stRadioOption"]:focus-within {{ outline:1px dotted var(--accent); outline-offset:-1px; }}
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:has(input:focus-visible) {{ outline:1px dotted var(--accent); outline-offset:-1px; }}
 
 /* ---------- controls ---------- */
 .stButton button:not([kind="tertiary"]) {{ border-radius:2px; border:1px solid var(--ink); background:transparent; color:var(--ink); transition:background .15s, color .15s; }}
@@ -116,7 +136,16 @@ table.ep-table tr:hover td {{ background:var(--paper2); }}
 [data-testid="stBaseButton-tertiary"] {{ border:none !important; background:transparent !important; padding:0; min-height:0; }}
 [data-testid="stBaseButton-tertiary"] p {{ font-family:{MONO}; font-size:0.74rem; color:var(--accent); }}
 [data-testid="stBaseButton-tertiary"]:hover {{ text-decoration:underline; background:transparent; color:var(--accent); }}
-div[data-baseweb="select"] > div, [data-testid="stFileUploaderDropzone"], [data-testid="stChatInput"] > div {{ border-radius:2px !important; border-color:var(--rule) !important; background:{WHITE}; }}
+div[data-baseweb="select"] > div, [data-testid="stChatInput"] > div {{ border-radius:2px !important; border-color:var(--rule) !important; background:var(--paper) !important; }}
+div[data-baseweb="select"] > div:hover {{ border-color:var(--ink2) !important; }}
+[data-testid="stFileUploaderDropzone"] {{ background:transparent !important; border:1px dashed var(--ink2) !important; border-radius:2px !important; padding:0.7rem !important; transition:border-color .15s, background .15s; }}
+[data-testid="stFileUploaderDropzone"]:hover {{ border-color:var(--accent) !important; background:var(--paper) !important; }}
+[data-testid="stFileUploaderDropzoneInstructions"] {{ display:none; }}
+[data-testid="stFileUploaderDropzone"] button {{ width:100%; border-radius:2px; border:1px solid var(--ink); background:transparent; color:var(--ink); font-family:{MONO}; font-size:0.72rem; letter-spacing:0.1em; text-transform:uppercase; }}
+[data-testid="stFileUploaderDropzone"] button:hover {{ background:var(--ink); color:var(--paper); }}
+[data-testid="stFileUploaderFile"] {{ font-family:{MONO}; font-size:0.74rem; }}
+[data-testid="stChatInput"] textarea {{ font-family:{SANS}; }}
+.stPlotlyChart {{ margin-top:-0.4rem; }}
 [data-testid="stExpander"] details {{ border:none; border-top:1px solid var(--rule); border-radius:0; }}
 [data-testid="stExpander"] summary p {{ font-family:{MONO}; font-size:0.74rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink2); }}
 [data-testid="stCheckbox"] p {{ font-size:0.86rem; color:var(--ink2); }}
@@ -191,6 +220,19 @@ def table(rows: list[dict], numeric: tuple = ()):
     body = ''.join('<tr>' + ''.join(f'<td class="{"num" if c in numeric else ""}">{escape(str(r[c]))}</td>'
                                     for c in cols) + '</tr>' for r in rows)
     html(f'<table class="ep-table"><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>')
+
+
+def share_rule(parts: list[tuple[str, float, str]]):
+    """A thin typeset share bar: one 10px rule split by share, big numbers set underneath."""
+    bar = ''.join(f'<div style="width:{p}%;background:{c}"></div>' for _, p, c in parts)
+    labels = ''.join(f'<div style="width:{p}%"><div class="ep-share-pct" style="color:{c}">{p:.1f}%</div>'
+                     f'<div class="ep-label" style="margin-top:0.3rem">{escape(n)}</div></div>' for n, p, c in parts)
+    html(f'<div class="ep-share"><div class="ep-share-bar">{bar}</div><div class="ep-share-labels">{labels}</div></div>')
+
+
+def colophon(items: list[tuple[str, str]]):
+    cells = ''.join(f'<div><div class="ep-label">{escape(k)}</div><p>{escape(v)}</p></div>' for k, v in items)
+    html(f'<div class="ep-colophon">{cells}</div>')
 
 
 def money(x: float) -> str:
