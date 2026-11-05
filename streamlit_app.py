@@ -224,7 +224,7 @@ with tab_valid:
 with tab_assistant:
     try:  # no secrets file at all is fine: rules-based mode
         key = st.secrets.get('GEMINI_API_KEY')
-        model = st.secrets.get('GEMINI_MODEL', 'gemini-2.5-flash')
+        model = st.secrets.get('GEMINI_MODEL', 'gemini-3.1-flash-lite')
     except Exception:
         key, model = None, None
     mode = 'llm' if key else 'rules'
@@ -255,7 +255,7 @@ with tab_assistant:
             st.session_state['n_questions'] += 1
             answer = agent.answer_question(question, sales, mode=mode,
                                            sidebar_filters=sidebar_filters,
-                                           api_key=key, model=model or 'gemini-2.5-flash',
+                                           api_key=key, model=model or 'gemini-3.1-flash-lite',
                                            survey=built['survey'])
             st.session_state['history'].append({'question': question, 'answer': answer})
             st.rerun()

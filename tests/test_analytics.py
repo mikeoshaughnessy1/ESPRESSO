@@ -143,3 +143,30 @@ def test_llm_mode_without_key_falls_back(sales):
 
 def test_unknown_store_is_an_error_not_a_guess(sales):
     assert analytics.get_total_revenue(sales, {C.STORE: 'Bozeman'}).error
+
+
+# ---------------------------------------- fixes found by stress-testing
+def test_partial_last_year_is_flagged(sales):
+    extra = sales.iloc[:1].assign(**{C.DATE: pd.Timestamp('2029-01-31')})
+    extra = data_prep.add_dates(extra)
+    r = analytics.get_growth(pd.concat([sales, extra]), C.STORE)
+    assert any(c.startswith('Partial year') for c in r.caveats)
+
+
+def test_percent_question_returns_shares(sales):
+    assert agent.rules_router('What percent of revenue came from the website in 2028?', sales)[1:] == \
+        ('get_revenue_by', {'group': C.CHANNEL, 'filters': {C.YEAR: 2028}})
+
+
+def test_two_stores_are_both_matched(sales):
+    _, tool, args = agent.rules_router('Compare Chicago and Denver revenue', sales)
+    assert sorted(args['filters'][C.STORE]) == ['Chicago', 'Denver'] or tool == 'get_growth'
+
+
+def test_data_clean_question_goes_to_quality_report(sales):
+    assert agent.rules_router('Is the data clean?', sales)[1] == 'data_quality_report'
+
+
+def test_missing_revenue_column_gives_message_not_crash():
+    out = data_prep.build_sales_table({'sales.csv': pd.DataFrame({'Date': ['2025-01-31'], 'Store ID': ['SH01']})})
+    assert out['sales'] is None and any('Revenue' in p for p in out['problems'])

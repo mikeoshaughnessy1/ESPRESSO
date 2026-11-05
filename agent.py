@@ -55,6 +55,8 @@ LIMITS = {
     'profit': 'The data has revenue only, no costs, so profit cannot be calculated.',
     'cause': ('This data can show whether two things move together, not whether one causes '
               'the other. Other factors (location, season, pricing) could explain both.'),
+    'forecast': ('I have no forecasting tool, so I will not predict future revenue. '
+                 'I can show past trends by year, which you could use as a starting point.'),
     'decision': ('Revenue trends alone do not justify a decision like closing a store. '
                  'Management would also need operating costs, store profitability, lease '
                  'terms, and customer behavior.'),
@@ -129,14 +131,15 @@ def _find_filters(q: str, df) -> dict:
 
 
 def _match_store(q: str, stores: list) -> dict:
-    """Store labels look like 'SH11 Chicago, IL'. Match on the ID or the city.
-    A city with two stores (Orlando) is ambiguous, so it matches nothing."""
-    for label in stores:
-        if re.search(rf'\b{label.split()[0].lower()}\b', q):  # store ID, e.g. sh11
-            return {C.STORE: label}
-    by_city = [lab for lab in stores if ',' in lab
-               and re.search(rf"\b{re.escape(lab.split(' ', 1)[1].split(',')[0].lower())}\b", q)]
-    return {C.STORE: by_city[0]} if len(by_city) == 1 else {}
+    """Store labels look like 'SH11 Chicago, IL'. Match on store ID or city.
+    One match gives one store. Several (e.g. 'Denver and Seattle', or Orlando,
+    which has two stores) give a list, so the answer covers each of them."""
+    hits = [lab for lab in stores if re.search(rf'\b{re.escape(lab.split()[0].lower())}\b', q)]
+    hits += [lab for lab in stores if ',' in lab and lab not in hits and re.search(
+        rf"\b{re.escape(lab.split(' ', 1)[1].split(',')[0].lower())}\b", q)]
+    if not hits:
+        return {}
+    return {C.STORE: hits[0] if len(hits) == 1 else hits}
 
 
 def _find_group(q: str) -> str | None:
@@ -158,8 +161,12 @@ def rules_router(question: str, df):
         limit = 'cause'
     elif re.search(r'\bshould\b|\bclose\b|\bopen a\b', q):
         limit = 'decision'
+    elif re.search(r'forecast|predict|next year|will .* be\b|\b20[3-9]\d\b', q) and \
+            not any(str(y) in q for y in allowed_values(df).get(C.YEAR, [])):
+        limit = 'forecast'
 
-    if any(w in q for w in ('missing', 'duplicate', 'quality', 'blank')):
+    if any(w in q for w in ('missing', 'duplicate', 'quality', 'blank', 'clean', 'error',
+                            'issue', 'problem', 'dirty')):
         return limit, 'data_quality_report', {}
     if 'satisf' in q or 'survey' in q:
         return limit, 'get_satisfaction_vs_revenue', {'filters': _find_filters(q, df)}
@@ -167,8 +174,20 @@ def rules_router(question: str, df):
     filters = _find_filters(q, df)
     group = _find_group(q)
 
-    if limit == 'decision' and C.STORE in filters:
-        return limit, 'get_growth', {'group': C.STORE, 'filters': filters}  # that store's trend
+    if limit == 'forecast':
+        return limit, 'get_revenue_by', {'group': C.YEAR, 'filters': filters}
+    many_stores = isinstance(filters.get(C.STORE), list)
+    how_did = re.search(r'how (did|is|are|has)|perform|doing|trend|compare', q)
+    if C.STORE in filters and (limit == 'decision' or how_did):
+        return limit, 'get_growth', {'group': C.STORE, 'filters': filters}  # those stores' trend
+    if many_stores:
+        return limit, 'get_revenue_by', {'group': C.STORE, 'filters': filters}
+    if re.search(r'percent|share|%|portion|proportion', q) and group != C.MONTH:
+        # "What percent came from the website in 2026?" -> breakdown, so the share has a denominator
+        for col in (C.CHANNEL, C.CATEGORY, C.STORE):
+            if col in filters or group == col:
+                filters.pop(col, None)
+                return limit, 'get_revenue_by', {'group': col, 'filters': filters}
     if any(w in q for w in ('grow', 'growth', 'decline', 'drop', 'increase', 'decrease', 'trend')) \
             and group not in (None, C.YEAR, C.MONTH):
         return limit, 'get_growth', {'group': group, 'filters': filters}
@@ -241,12 +260,22 @@ def _headline(result: ToolResult) -> str:
     if result.tool == 'get_growth' and v:
         ranked = sorted(v.items(), key=lambda kv: kv[1]['pct_change'])
         low, high = ranked[0], ranked[-1]
+        partial = next((c for c in result.caveats if c.startswith('Partial year')), '')
+        warn = f' Caution: {partial}' if partial else ''
         if len(v) == 1:
-            return f"{low[0]}: {low[1]['pct_change']:+.2f}% from first to last year."
+            return f"{low[0]}: {low[1]['pct_change']:+.2f}% from first to last year.{warn}"
+        if high[1]['pct_change'] < 0:
+            return (f"Every group declined. Largest decline: {low[0]} ({low[1]['pct_change']:+.2f}%). "
+                    f"Smallest decline: {high[0]} ({high[1]['pct_change']:+.2f}%).{warn}")
         if low[1]['pct_change'] >= 0:
-            return f"No group declined. Smallest growth: {low[0]} ({low[1]['pct_change']:+.2f}%)."
+            return (f"Largest growth: {high[0]} ({high[1]['pct_change']:+.2f}%). No group declined; "
+                    f"smallest growth: {low[0]} ({low[1]['pct_change']:+.2f}%).{warn}")
         return (f"Largest decline: {low[0]} ({low[1]['pct_change']:+.2f}%). "
-                f"Largest growth: {high[0]} ({high[1]['pct_change']:+.2f}%).")
+                f"Largest growth: {high[0]} ({high[1]['pct_change']:+.2f}%).{warn}")
+    if result.tool == 'get_monthly_share' and v:
+        ranked = sorted(v.items(), key=lambda kv: kv[1]['revenue'])
+        return (f"Highest month: {ranked[-1][0]} ({ranked[-1][1]['share_pct']}% of the year). "
+                f"Lowest: {ranked[0][0]} ({ranked[0][1]['share_pct']}%).")
     if result.tool == 'get_revenue_by' and v:
         top = max(v.items(), key=lambda kv: kv[1]['revenue'])
         return f"Highest: {top[0]} (${top[1]['revenue']:,.2f}, {top[1]['share_pct']}% of revenue in scope)."
@@ -263,7 +292,7 @@ def _fmt_value(result: ToolResult) -> str:
 
 
 def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dict | None = None,
-                    api_key: str | None = None, model: str = 'gemini-2.5-flash',
+                    api_key: str | None = None, model: str = 'gemini-3.1-flash-lite',
                     survey=None) -> dict:
     log: list = []
     note = ''
@@ -276,8 +305,12 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
                 if not out['used_tools']:
                     out['text'] += ('\n\n_No analytical function was called, so this answer '
                                     'contains no calculated figures._')
-                return {'mode': 'Language model (Gemini, function calling)',
-                        'scope': scope_text(sidebar_filters or {}, sidebar_filters),
+                used = [l['arguments'].get('filters', {}) | ({C.YEAR: l['arguments']['year']}
+                        if 'year' in l['arguments'] else {}) for l in log]
+                scope = '; '.join(dict.fromkeys(scope_text(f, sidebar_filters) for f in used)) \
+                    or scope_text(sidebar_filters or {}, sidebar_filters)
+                return {'mode': f'Language model ({model}, function calling)',
+                        'scope': scope,
                         'findings': out['text'], 'interpretation': '', 'next_steps': '',
                         'tool_log': log}
             except Exception as exc:  # quota, network, bad key: never crash
@@ -301,8 +334,8 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
         findings = f'Could not calculate that: {result.error}'
     else:
         head = _headline(result)
-        if limit == 'profit':
-            head = f"{LIMITS['profit']} Revenue is shown instead. {head}"
+        if limit in ('profit', 'forecast'):
+            head = f"{LIMITS[limit]} Revenue is shown instead. {head}"
         findings = (f'{head}\n\n' if head else '') + f'{result.definition}:\n\n```\n{_fmt_value(result)}\n```\nRows used: {result.rows_used:,}'
     notes = ([LIMITS[limit]] if limit else []) + result.caveats
     interp = ' '.join(dict.fromkeys(notes))  # drop repeated caveats

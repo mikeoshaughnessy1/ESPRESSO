@@ -215,6 +215,11 @@ def get_growth(df, group: str, filters: dict | None = None) -> ToolResult:
         return _error(name, 'Need at least two years of data in scope to measure growth.',
                       _scope(filters))
     first, last = int(years[0]), int(years[-1])
+    months = clean.groupby(C.YEAR)[C.MONTH].nunique() if C.MONTH in clean.columns else None
+    partial_note = None
+    if months is not None and months.get(first) != months.get(last):
+        partial_note = (f'Partial year: {first} has {months.get(first)} month(s) of data and '
+                        f'{last} has {months.get(last)}, so this is not a like-for-like comparison.')
     pivot = clean.pivot_table(index=group, columns=C.YEAR, values=C.REVENUE, aggfunc='sum')
     value, caveats = {}, [REVENUE_CAVEAT, f'Compares {first} to {last} only; '
                           'years in between are not used.']
@@ -226,6 +231,8 @@ def get_growth(df, group: str, filters: dict | None = None) -> ToolResult:
         value[str(g)] = {f'revenue_{first}': round(float(a), 2),
                          f'revenue_{last}': round(float(b), 2),
                          'pct_change': round((float(b) - float(a)) / float(a) * 100, 2)}
+    if partial_note:
+        caveats.insert(0, partial_note)
     declined = [g for g, v in value.items() if v['pct_change'] < 0]
     if not declined:
         caveats.append(f'No {group} had lower revenue in {last} than in {first}.')

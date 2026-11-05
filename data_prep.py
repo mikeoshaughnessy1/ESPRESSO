@@ -72,10 +72,14 @@ def _lookup(sales, table, key, cols, name, merges, problems):
         problems.append(f'{name} has {dups} duplicate {key} value(s). Kept the first of each '
                         'so revenue is not duplicated.')
         lookup = lookup.drop_duplicates(key)
+    if key not in sales.columns:
+        problems.append(f'Sales file is missing column {key!r}, so {name} could not be joined.')
+        return sales
     merged, rep = analytics.check_merge(sales, lookup, on=key, value_col=C.REVENUE, how='left')
-    unmatched = int(merged[cols[0]].isna().sum())  # rows that found no match
+    unmatched = int((~sales[key].isin(lookup[key])).sum())  # keys with no match in the lookup
     if unmatched:
-        problems.append(f'{unmatched} sales row(s) have a {key} not found in {name}.')
+        problems.append(f'{unmatched} sales row(s) have a {key} not found in {name}: '
+                        f'{sorted(sales.loc[~sales[key].isin(lookup[key]), key].astype(str).unique())[:10]}')
     merges.append({'merge': f'sales + {name} on {key}', **rep, 'unmatched_rows': unmatched})
     return merged
 
@@ -94,6 +98,10 @@ def build_sales_table(files: dict[str, pd.DataFrame]) -> dict:
             problems.append("No uploaded file name contains 'sales'.")
             return out
     sales = add_revenue(tables['sales'])
+    if C.REVENUE not in sales.columns:
+        problems.append("The sales file has no 'Revenue' column (see config.py), so revenue "
+                        f"cannot be calculated. Columns found: {list(tables['sales'].columns)}")
+        return out
 
     if 'categories' in tables:
         sales = _lookup(sales, tables['categories'], 'category_id', [C.CATEGORY],
