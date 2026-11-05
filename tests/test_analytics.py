@@ -170,3 +170,10 @@ def test_data_clean_question_goes_to_quality_report(sales):
 def test_missing_revenue_column_gives_message_not_crash():
     out = data_prep.build_sales_table({'sales.csv': pd.DataFrame({'Date': ['2025-01-31'], 'Store ID': ['SH01']})})
     assert out['sales'] is None and any('Revenue' in p for p in out['problems'])
+
+
+def test_assignment_test2_wording_routes_to_growth(sales):
+    """Live-app bug: 'percentage' sent this to the share breakdown instead of growth."""
+    q = 'Which store experienced the greatest percentage revenue decline?'
+    assert agent.rules_router(q, sales)[1] == 'get_growth'
+    assert 'Largest decline' in agent.answer_question(q, sales)['findings']

@@ -174,6 +174,7 @@ def rules_router(question: str, df):
     filters = _find_filters(q, df)
     group = _find_group(q)
 
+    growth_words = ('grow', 'growth', 'decline', 'drop', 'increase', 'decrease', 'trend', 'change')
     if limit == 'forecast':
         return limit, 'get_revenue_by', {'group': C.YEAR, 'filters': filters}
     many_stores = isinstance(filters.get(C.STORE), list)
@@ -182,13 +183,14 @@ def rules_router(question: str, df):
         return limit, 'get_growth', {'group': C.STORE, 'filters': filters}  # those stores' trend
     if many_stores:
         return limit, 'get_revenue_by', {'group': C.STORE, 'filters': filters}
-    if re.search(r'percent|share|%|portion|proportion', q) and group != C.MONTH:
+    if re.search(r'percent|share|%|portion|proportion', q) and group != C.MONTH \
+            and not any(w in q for w in growth_words):  # "percentage decline" is a growth question
         # "What percent came from the website in 2026?" -> breakdown, so the share has a denominator
         for col in (C.CHANNEL, C.CATEGORY, C.STORE):
             if col in filters or group == col:
                 filters.pop(col, None)
                 return limit, 'get_revenue_by', {'group': col, 'filters': filters}
-    if any(w in q for w in ('grow', 'growth', 'decline', 'drop', 'increase', 'decrease', 'trend')) \
+    if any(w in q for w in growth_words) \
             and group not in (None, C.YEAR, C.MONTH):
         return limit, 'get_growth', {'group': group, 'filters': filters}
     if group == C.MONTH and C.YEAR in filters:
