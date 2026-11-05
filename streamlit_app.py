@@ -11,10 +11,12 @@ import agent
 import analytics
 import config as C
 import data_prep
+import theme
 
 MAX_QUESTIONS = 15  # per-session limit for the assistant
 
-st.set_page_config(page_title='E-Presso BI Analyst', layout='wide')
+st.set_page_config(page_title='E-Presso BI Analyst', page_icon='🌲', layout='wide')
+theme.apply()
 st.title('E-Presso BI Analyst')
 st.caption('Revenue dashboard and analytical assistant for E-Presso managers. '
            'Every number is calculated from the loaded data, never typed in.')
