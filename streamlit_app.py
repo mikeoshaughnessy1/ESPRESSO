@@ -239,12 +239,21 @@ with tab_assistant:
             ans = item['answer']
             if ans.get('note'):
                 st.info(ans['note'])
-            st.markdown(f"**Scope:** {ans['scope']}")
-            st.markdown(f"**Findings:** {ans['findings']}")
-            if ans['interpretation']:
-                st.markdown(f"**Interpretation:** {ans['interpretation']}")
-            if ans['next_steps']:
-                st.markdown(f"**Next steps:** {ans['next_steps']}")
+            def safe(text):
+                """Two $ signs on a line render as a math formula, so escape them,
+                except inside ``` code blocks, where a backslash would show."""
+                parts = str(text).split('```')
+                return '```'.join(p if i % 2 else p.replace('$', '\\$')
+                                  for i, p in enumerate(parts))
+            st.markdown(f"**Scope:** {safe(ans['scope'])}")
+            if ans['mode'].startswith('Language model'):
+                st.markdown(safe(ans['findings']))  # the model writes its own section labels
+            else:
+                st.markdown(f"**Findings:** {safe(ans['findings'])}")
+                if ans['interpretation']:
+                    st.markdown(f"**Interpretation:** {safe(ans['interpretation'])}")
+                if ans['next_steps']:
+                    st.markdown(f"**Next steps:** {safe(ans['next_steps'])}")
             with st.expander(f"Tool-call log ({ans['mode']})"):
                 st.json(ans['tool_log'] or 'No tool was called.')
     question = st.chat_input('Ask a question about the loaded data')

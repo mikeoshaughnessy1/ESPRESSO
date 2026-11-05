@@ -70,9 +70,9 @@ Rules:
 - Revenue is not profit. Association is not causation.
 - If the data cannot support a conclusion, say so and name the missing information.
 - Never write or run code. Never modify data.
-Reply in three short labeled parts: Findings (facts from tool results only),
-Interpretation (what it may mean, with caveats), Next steps (or "No recommendation
-is supported by this data.")."""
+Reply in three short parts, each starting with its bold label on its own line:
+**Findings:** (facts from tool results only), **Interpretation:** (what it may mean,
+with caveats), **Next steps:** (or "No recommendation is supported by this data.")."""
 
 
 # ------------------------------------------------------------- dispatcher
