@@ -1,19 +1,19 @@
 # Validation
 
 ## Power BI vs. app
-The Power BI column comes from the Sales table inside our .pbix (same 25,200 rows). Confirm each figure from a table visual in our own report and screenshot it.
+Checked Nov 9 2026 against our own file (`POWER_BI-MOS.pbix`). We read the model's tables with pbixray and summed them. The Sales table in the .pbix is the same 25,200 rows as `data/Sales.csv`, with every revenue value identical.
 
-Known discrepancy to explain: our Power BI model joined Sales[Store ID] to Survey Results[Survey ID] ("SH01" vs "SH01_25"). Those never match, so any Power BI visual that splits revenue by a Stores-table field (City, StoreType, Market) is not reliable. The app joins Sales to Stores directly on Store ID.
+Known discrepancy, now confirmed in the model's relationships: Sales[Store ID] is joined to Survey Results[Survey ID] ("SH01" vs "SH01_25"), and Survey Results joins to E-Presso Stores. Those keys never match, so a Power BI visual that splits revenue by a Stores field (StoreType, City, Market) can't be trusted. The app joins Sales to Stores directly on Store ID. The channel figures below come from the .pbix data joined the right way.
 
 ## Table (use the app's Validation tab, which ignores sidebar filters)
 | Metric | Power BI result | App result | Match? / Explanation |
 |---|---|---|---|
-| Total revenue (five years) | $42,174,440.00 (confirm in our report) | $42,174,440.00 | |
-| Website revenue | $27,218,880.00 (confirm) | $27,218,880.00 (64.54%) | |
-| Brick-and-mortar revenue | $14,955,560.00 (confirm) | $14,955,560.00 (35.46%) | |
-| Revenue by year | | 2025 $7,181,750; 2026 $8,016,950; 2027 $8,824,720; 2028 $8,969,470; 2029 $9,181,550 | |
-| Monthly revenue pattern | | December is 25.61% of 5-year revenue, November 12.71%, February lowest at 3.83% | |
-| Additional measure: | | | |
+| Total revenue (five years) | $42,174,440 | $42,174,440.00 | Match |
+| Website revenue | $27,218,880 (Store ID join) | $27,218,880.00 (64.54%) | Match. A StoreType visual in our report would not show this, because of the bad relationship above |
+| Brick-and-mortar revenue | $14,955,560 (Store ID join) | $14,955,560.00 (35.46%) | Match, same note |
+| Revenue by year | 2025 $7,181,750; 2026 $8,016,950; 2027 $8,824,720; 2028 $8,969,470; 2029 $9,181,550 | 2025 $7,181,750; 2026 $8,016,950; 2027 $8,824,720; 2028 $8,969,470; 2029 $9,181,550 | Match, all five years |
+| Monthly revenue pattern | December 25.61%, November 12.71%, February 3.83% | December is 25.61% of 5-year revenue, November 12.71%, February lowest at 3.83% | Match |
+| Additional measure: Beans revenue | $5,672,720 | $5,672,720 (Category = Beans) | Match |
 
 ## Independent check
 What we calculated, how (Excel pivot / script), and what we got:
