@@ -3,7 +3,7 @@
 Tests 1-4 were run on the live app twice on Nov 5 2026: first in rules-based mode (no key), then with Gemini (`gemini-3.1-flash-lite`, function calling) after adding the API key. Both modes passed tests 1-4.
 Screenshots: `docs/screenshots/test2-live-after-fix.jpg` (rules mode, tool log), `docs/screenshots/test3-gemini-live.jpg` (Gemini).
 Test 5 ran live on Nov 9 2026 in Gemini mode. Tool-call screenshots: `k03-before-toolcall.jpg`, `k11-after-toolcall.jpg`.
-TODO for us: screenshot the Gemini tool-call log for tests 1 and 2.
+Gemini tool-call screenshots for tests 1 and 2 (Nov 9): `g01`/`g02` (Test 1), `g03`/`g04` (Test 2).
 
 ## Gemini mode results (live)
 | Test | Function the model called | Answer | Pass |

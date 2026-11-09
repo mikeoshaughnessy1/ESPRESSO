@@ -28,5 +28,5 @@ Total $42,174,440. Website $27,218,880. Brick & Mortar $14,955,560. By year: 202
 
 ## Status (update after each session)
 - Done: deployed app, real joins, 6 charts, filters, 6 tools, rules assistant, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite), 26 tests, agent tests 1-4 passed live in both modes, two fix-and-retests documented.
-- Done Nov 9: Test 5 and the $1,000 test on the live app, screenshots k01-k13.
-- To do: Gemini tool-call screenshots for tests 1 and 2; confirm Power BI numbers from our own report; reflection (our words); contribution table; teammate commits.
+- Done Nov 9: Test 5 and the $1,000 test on the live app, screenshots k01-k13. Gemini tool-call screenshots for tests 1 and 2 (g01-g04).
+- To do: confirm Power BI numbers from our own report; reflection (our words); contribution table; teammate commits.
