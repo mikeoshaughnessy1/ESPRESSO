@@ -28,12 +28,15 @@ Original Revenue 6,780. Modified Revenue 7,780 (+1,000). No other cell changes.
 | Original value | 6,780 |
 | Modified value | 7,780 |
 | Expected total revenue after change | $42,175,440.00 |
-| Actual total revenue after change | |
-| Chart that should change, and what we saw | |
-| Filter combinations checked (changed / unchanged) | |
-| Assistant answer before / after | |
-| Code changes required? | |
-| Original data restored? (remove the upload, total back to $42,174,440.00) | |
+| Actual total revenue after change | $42,175,440 (k04). Banner says "Uploaded data in use", sidebar shows Sales: uploaded, data version changed e06d3923 to 15ee6dbb |
+| Chart that should change, and what we saw | Revenue by year: 2025 bar total went from $7,181,750 to $7,182,750. Other years unchanged (k05, k06) |
+| Filter combinations checked (changed / unchanged) | Changed: Year 2025 $7,182,750 (k05), Website $27,219,880 (k08), Beans $5,673,720 (k09), Website 2025 $3,161,230 (k05 table). Unchanged: Year 2026 $8,016,950 (k06), Brick & Mortar $14,955,560 (k07) |
+| Assistant answer before / after | Gemini mode, "How much revenue did the website generate in 2025?": $3,160,230 before (k02, k03), $3,161,230 after (k10, k11). Same tool call both times: get_total_revenue, year=2025, channel=Website, 240 rows |
+| Code changes required? | None. Same deployed commit before and after |
+| Original data restored? (remove the upload, total back to $42,174,440.00) | Yes. Removed the upload: "Original data restored", sidebar back to Sales: original, $42,174,440, version e06d3923 (k12, k13) |
+
+Run on the live app Nov 9 2026. Every prediction in Step 1 matched. Screenshots are `docs/screenshots/k01` to `k13`, in order.
+For this run the modified file was built in the browser from the repo's `data/Sales.csv` with only row S0020250101 changed (6780.0 to 7780.0), then dropped into the "Replace data" uploader as `Sales.csv`. Same result as the Excel method below.
 
 Local test result (AppTest, same steps): $42,174,440.00 -> $42,175,440.00, sidebar showed "uploaded", no code changes.
 
