@@ -20,7 +20,7 @@ See `docs/grain_and_merges.md` and the Table relationships section on the Data &
 Revenue = sum of the Sales table Revenue column. Channel comes from Stores.StoreType. Revenue is not profit; there is no cost data. Share = group revenue / total revenue in scope with a known group. Monthly share of a year = month revenue / that year's revenue. Growth = (last year - first year) / first year, on the months found in both years.
 
 ## Assistant
-Built as Option A. **Language model** (Google Gemini function calling, default `gemini-3.1-flash-lite`) runs when `GEMINI_API_KEY` is in Streamlit Secrets, as it is on the live app. The model only chooses a named function and parameters from a fixed list of allowed values; our code runs it. **Rules-based** keyword matching is the fallback when no key is set, the API fails, or the quota runs out. The app shows which mode answered.
+Built as Option A. **Language model** (Google Gemini function calling, default `gemini-3.1-flash-lite`) runs when `GEMINI_API_KEY` is in Streamlit Secrets, as it is on the live app. The model only chooses a named function and parameters from a fixed list of allowed values; our code runs it. If that model is busy or over its quota, the app tries two backup Gemini models (`gemini-3.5-flash-lite`, then `gemini-3.6-flash`) and the answer names the model that replied. **Rules-based** keyword matching is the fallback when no key is set or every model fails. The app shows which mode answered.
 
 API limits: the key is on Gemini's free tier, which caps requests per minute and per day. A question that calls a function uses two or more requests. Past the cap the app says so and answers in rules mode, which covers common phrasings only.
 

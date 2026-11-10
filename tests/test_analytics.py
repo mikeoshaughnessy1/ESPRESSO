@@ -566,3 +566,19 @@ def test_app_partial_year_has_no_nan_on_validation_page(tmp_path):
 def test_excel_csv_utf8_marker_does_not_hide_the_first_column():
     table = analytics.load_table(b'\xef\xbb\xbfSales ID,Revenue\nS1,5\n', 'Sales.csv')
     assert list(table.columns) == ['Sales ID', 'Revenue']
+
+
+def test_backup_model_answers_when_primary_is_busy(sales, monkeypatch):
+    seen = []
+
+    def fake(question, df, api_key, model, sidebar_filters, log, survey=None):
+        seen.append(model)
+        if len(seen) == 1:
+            log.append({'tool': 'stale', 'arguments': {}, 'result': {}})
+            raise RuntimeError('busy')
+        return {'text': 'Findings: none.', 'used_tools': False}
+
+    monkeypatch.setattr(agent, 'llm_answer', fake)
+    a = agent.answer_question('Weather?', sales, mode='llm', api_key='fake', model='primary')
+    assert seen == ['primary', agent.BACKUP_MODELS[0]]
+    assert agent.BACKUP_MODELS[0] in a['mode'] and a['tool_log'] == [] and a['note'] == ''

@@ -309,8 +309,12 @@ def rules_router(question: str, df):
 
 # ------------------------------------------------------------- LLM router
 
-def _generate_with_retry(client, model, contents, cfg, tries=3, wait=1.5):
-    """Call Gemini. If Google's server is busy (a 5xx ServerError), wait and try again.
+# Tried in order when the chosen model errors (busy server, per-model quota).
+BACKUP_MODELS = ('gemini-3.5-flash-lite', 'gemini-3.6-flash')
+
+
+def _generate_with_retry(client, model, contents, cfg, tries=2, wait=1.5):
+    """Call Gemini. If Google's server is busy (a 5xx ServerError), wait and try again once.
 
     Free-tier models are often overloaded for a second or two. Other errors
     (bad key, quota) are not retried: they go straight to the rules fallback.
@@ -450,32 +454,34 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
         if not api_key:
             note = 'No API key is set, so the rules-based assistant answered instead.'
         else:
-            try:
-                out = llm_answer(question, df, api_key, model, sidebar_filters, log, survey)
-                if not out['used_tools']:
-                    out['text'] += ('\n\n_No analytical function was called, so this answer '
-                                    f'contains no calculated figures. {CAPABILITIES}_')
-                flagged = untraced_numbers(out['text'], log)
-                if 'findings' not in out['text'].lower():  # unlabeled text would be dropped by the UI split
-                    out['text'] = f"**Findings:** {out['text']}"
-                for label, fallback in (('Interpretation', NO_INTERPRETATION),
-                                        ('Next steps', NO_RECOMMENDATION)):
-                    if label.lower() not in out['text'].lower():  # the model skipped a part
-                        out['text'] += f'\n\n**{label}:** {fallback}'
-                used = [l['arguments'].get('filters', {}) | ({C.YEAR: l['arguments']['year']}
-                        if 'year' in l['arguments'] else {}) for l in log]
-                scope = '; '.join(dict.fromkeys(scope_text(f, sidebar_filters) for f in used)) \
-                    or NO_DATA_SCOPE
-                return {'mode': f'Language model ({model}, function calling)',
-                        'scope': scope,
-                        'findings': out['text'], 'interpretation': '', 'next_steps': '',
-                        'tool_log': log,
-                        'note': f'Not found in any tool result, so do not rely on: {flagged}'
-                        if flagged else ''}
-            except Exception as exc:  # quota, network, bad key: never crash
-                note = (f'The language model was unavailable ({type(exc).__name__}), '
-                        'so the rules-based assistant answered instead.')
-                log.clear()
+            # Google's free tier is often busy on one model, so try backups before rules mode.
+            for m in dict.fromkeys((model, *BACKUP_MODELS)):
+                try:
+                    out = llm_answer(question, df, api_key, m, sidebar_filters, log, survey)
+                    if not out['used_tools']:
+                        out['text'] += ('\n\n_No analytical function was called, so this answer '
+                                        f'contains no calculated figures. {CAPABILITIES}_')
+                    flagged = untraced_numbers(out['text'], log)
+                    if 'findings' not in out['text'].lower():  # unlabeled text would be dropped by the UI split
+                        out['text'] = f"**Findings:** {out['text']}"
+                    for label, fallback in (('Interpretation', NO_INTERPRETATION),
+                                            ('Next steps', NO_RECOMMENDATION)):
+                        if label.lower() not in out['text'].lower():  # the model skipped a part
+                            out['text'] += f'\n\n**{label}:** {fallback}'
+                    used = [l['arguments'].get('filters', {}) | ({C.YEAR: l['arguments']['year']}
+                            if 'year' in l['arguments'] else {}) for l in log]
+                    scope = '; '.join(dict.fromkeys(scope_text(f, sidebar_filters) for f in used)) \
+                        or NO_DATA_SCOPE
+                    return {'mode': f'Language model ({m}, function calling)',
+                            'scope': scope,
+                            'findings': out['text'], 'interpretation': '', 'next_steps': '',
+                            'tool_log': log,
+                            'note': f'Not found in any tool result, so do not rely on: {flagged}'
+                            if flagged else ''}
+                except Exception as exc:  # quota, network, bad key: never crash
+                    note = (f'The language model was unavailable ({type(exc).__name__}), '
+                            'so the rules-based assistant answered instead.')
+                    log.clear()
 
     limit, name, args = rules_router(question, df)
     if name is None:
