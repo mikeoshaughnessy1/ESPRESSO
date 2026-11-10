@@ -15,7 +15,7 @@ Gemini tool-call screenshots for tests 1 and 2 (Nov 9): `g01`/`g02` (Test 1), `g
 
 Tool-call log screenshots in `docs/screenshots/`: Test 1 `agent-test1-gemini.png`, Test 2 `agent-test2-gemini.png`, Test 3 `agent-test3-gemini.png`, Test 4 `agent-test4-gemini.png`, Test 5 `agent-test5-before.png`, `-after`, `-restored`. Also `agent-filtered-scope.png`, `agent-unsupported-before-fix.png`, and earlier `test2-live-after-fix.jpg` (rules mode), `test3-gemini-live.jpg`.
 
-TODO after the next push: rerun the five tests on the live app and retake the screenshots. The scope wording changed (for example "2028, Website (filtered subset, from the question)"), so the quotes above are from the earlier version.
+Note: these screenshots were taken before the scope wording changed (it now reads, for example, "Website, 2028 (filtered subset, from the question)"). The numbers are the same; see the Nov 10 live retests at the end of this file.
 
 ## Other live Gemini checks
 | Test | Function the model called | Answer | Pass |
