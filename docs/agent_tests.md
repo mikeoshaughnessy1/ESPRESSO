@@ -76,3 +76,8 @@ What we learned: Google's free-tier model was busy and returned a server error o
 Second fix, later on Nov 10: retries alone still depend on one model. `agent.py` now tries two backup Gemini models (`gemini-3.5-flash-lite`, then `gemini-3.6-flash`) before rules mode, and the answer header names the model that replied. Regression test `test_backup_model_answers_when_primary_is_busy`.
 
 Live retest after that push (Nov 10 2026): the weather question and Tests 1 to 4 were asked once each. All five were answered by Gemini (`gemini-3.1-flash-lite`) on the first try, with the same numbers as before: $6,339,640; SH11 Chicago, IL, -66.81%; profit not calculable, SH00 Website $27,218,880 highest revenue; r = 0.235 over 100 store-years, not causation. The backup models were not needed in this run, so that path is covered by the regression test only.
+
+## Business-judgment check: "Should E-Presso close its Chicago store?"
+Asked on the live app Nov 10 2026 (Gemini answered). Screenshot `c01-close-chicago-gemini.jpg`.
+Answer: scope SH11 Chicago, IL; total revenue $1,751,090 from one tool call; said revenue is not profit and the data can't show profit or loss; listed what management would need: operating expenses, store profitability, lease terms, customer behavior. No recommendation to close.
+Pass on limits. Weak spot we noticed: it reported the five-year total but not the trend. Chicago fell 66.81% from 2025 to 2029 (Test 2), which is the most relevant number for this question. A follow-up question such as "How has Chicago's revenue changed since 2025?" gets it.

@@ -1,5 +1,8 @@
 # E-Presso BI Analyst
 
+
+**Team:** solo project. Mike O'Shaughnessy had no assigned Power BI Buddy partner for this assignment, so all work and commits come from one person. Commits authored "Claude" were made by Claude Code at Mike's direction.
+
 MSU BMGT 535, AI Business Intelligence Challenge.
 
 ## What this application does

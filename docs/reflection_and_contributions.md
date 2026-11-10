@@ -17,4 +17,4 @@ Because there are no costs in the data, estimating profit is impossible without 
 # Contribution statement
 | Team member | Main responsibilities | Key calculation or design decision I can explain | Approximate commits |
 |---|---|---|---|
-| Mike O'Shaughnessy | Directed the AI through the full build, tested and validated the app, deployed through GitHub and Streamlit, made the layout and design calls | The $1,000 test, and moving data validation off the main page into its own tab | About 23 in the repo: about 9 under my own name, the rest committed by Claude Code at my direction |
+| Mike O'Shaughnessy | Directed the AI through the full build, tested and validated the app, deployed through GitHub and Streamlit, made the layout and design calls | The $1,000 test, and moving data validation off the main page into its own tab | More than 25 in the repo: 11 under my own name or my Mac, the rest committed by Claude Code at my direction |
