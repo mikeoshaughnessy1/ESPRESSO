@@ -493,6 +493,8 @@ else:
                f'<div class="ep-meta">Scope: {T.escape(ans["scope"])}</div></div>')
         if ans.get('note'):
             T.note(T.escape(ans['note']))
+        if ans.get('number_check'):
+            T.html(f'<p class="ep-meta">{T.escape(ans["number_check"])}</p>')
         if ans['mode'].startswith('Language model'):
             for label, body in split_parts(ans['findings']):
                 part(label, body)

@@ -81,3 +81,8 @@ Live retest after that push (Nov 10 2026): the weather question and Tests 1 to 4
 Asked on the live app Nov 10 2026 (Gemini answered). Screenshot `c01-close-chicago-gemini.jpg`.
 Answer: scope SH11 Chicago, IL; total revenue $1,751,090 from one tool call; said revenue is not profit and the data can't show profit or loss; listed what management would need: operating expenses, store profitability, lease terms, customer behavior. No recommendation to close.
 Pass on limits. Weak spot we noticed: it reported the five-year total but not the trend. Chicago fell 66.81% from 2025 to 2029 (Test 2), which is the most relevant number for this question. A follow-up question such as "How has Chicago's revenue changed since 2025?" gets it.
+
+Fixed Nov 10 2026, after comparing with another solution: a closing-a-store question now runs `get_growth` for every store and states the named store's change and rank. Rules mode: "SH11 Chicago, IL: -66.81% from first to last year, rank 1 of 21 stores (1 = largest decline)." The Gemini prompt now tells the model to do the same. Regression test `test_closing_a_store_ranks_it_against_every_store`.
+
+## Number check shown on every answer (added Nov 10 2026)
+Each answer now shows a number-check line. For Gemini: "Number check: all N numbers in this answer match a tool result," or the numbers that match nothing. Plain calendar years like 2026 are treated as dates, not claims. Rules mode prints figures straight from the tool result. Regression test `test_number_check_counts_numbers_and_skips_plain_years`.

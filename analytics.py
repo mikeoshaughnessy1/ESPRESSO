@@ -268,21 +268,35 @@ def get_growth(df, group: str, filters: dict | None = None) -> ToolResult:
                       f'by {group}', _scope(filters), len(compared), caveats)
 
 
-def get_monthly_share(df, year: int, filters: dict | None = None) -> ToolResult:
-    """Each month's revenue as a % of that YEAR's total (the denominator)."""
+def get_monthly_share(df, year: int | None = None, filters: dict | None = None) -> ToolResult:
+    """Each month's revenue as a % of that YEAR's total. With no year, two definitions:
+    % of the all-years total (Power BI's '% of grand total') and the average yearly share."""
     name = 'get_monthly_share'
     filters = dict(filters or {})
-    filters[C.YEAR] = year
+    if year is not None:
+        filters[C.YEAR] = year
     sub, err = _revenue_subset(df, filters, name)
     if err:
         return err
     clean = sub.dropna(subset=[C.REVENUE, C.MONTH])
     totals = clean.groupby(C.MONTH)[C.REVENUE].sum()
     annual = float(totals.sum())
+    caveats = [REVENUE_CAVEAT]
+    if year is None:
+        by_year = clean.groupby([C.YEAR, C.MONTH])[C.REVENUE].sum()
+        yearly_share = by_year / by_year.groupby(level=0).transform('sum') * 100
+        avg = yearly_share.groupby(level=1).mean()
+        value = {int(m): {'revenue': round(float(v), 2),
+                          'share_pct': round(float(v) / annual * 100, 2) if annual else 0.0,
+                          'avg_share_of_own_year_pct': round(float(avg.get(m, 0)), 2)}
+                 for m, v in totals.items()}
+        caveats.append('share_pct = month across all years / all-years total (Power BI). '
+                       'avg_share_of_own_year_pct = average of each year\'s monthly share.')
+        return ToolResult(name, value, 'Monthly revenue (all years) / all-years revenue x 100',
+                          _scope(filters), len(clean), caveats)
     value = {int(m): {'revenue': round(float(v), 2),
                       'share_pct': round(float(v) / annual * 100, 2) if annual else 0.0}
              for m, v in totals.items()}
-    caveats = [REVENUE_CAVEAT]
     if len(value) < 12:
         caveats.append(f'Only {len(value)} month(s) have revenue in {year}.')
     return ToolResult(name, value, f'Monthly revenue / total {year} revenue x 100',

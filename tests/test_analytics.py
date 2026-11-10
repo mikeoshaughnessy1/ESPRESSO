@@ -582,3 +582,36 @@ def test_backup_model_answers_when_primary_is_busy(sales, monkeypatch):
     a = agent.answer_question('Weather?', sales, mode='llm', api_key='fake', model='primary')
     assert seen == ['primary', agent.BACKUP_MODELS[0]]
     assert agent.BACKUP_MODELS[0] in a['mode'] and a['tool_log'] == [] and a['note'] == ''
+
+
+# ---- Added Nov 10: store rank on decisions, both monthly-share definitions, number check, labels
+def test_closing_a_store_ranks_it_against_every_store(model):
+    _, name, args = agent.rules_router('Should E-Presso close its Chicago store?', model)
+    assert name == 'get_growth' and args['group'] == C.STORE and C.STORE not in args['filters']
+    a = agent.answer_question('Should E-Presso close its Chicago store?', model)
+    # The fixture's Chicago store only has 2028 sales, so it says why there is no rank.
+    assert a['findings'].startswith('SH11 Chicago, IL has no revenue in both')
+
+
+def test_monthly_share_without_year_gives_both_definitions(sales):
+    v = analytics.get_monthly_share(sales).value
+    assert all({'share_pct', 'avg_share_of_own_year_pct'} <= set(m) for m in v.values())
+    assert abs(sum(m['share_pct'] for m in v.values()) - 100) < 0.1
+
+
+def test_number_check_counts_numbers_and_skips_plain_years():
+    log = [{'result': {'value': [6339640.0, 240]}}]
+    assert agent.number_check('$6,339,640 over 240 rows, ignoring 2026.', log) == (2, [])
+    assert agent.number_check('$2,026 extra', log) == (1, ['2,026'])
+    assert 'all 2 numbers' in agent.number_check_line('$6,339,640 over 240 rows.', log)
+
+
+def test_label_notes_flag_repeated_names_and_split_regions():
+    import pandas as pd
+    import data_prep
+    notes = data_prep.label_notes({
+        'products': pd.DataFrame({'product_id': ['P1', 'P2', 'P3'], C.PRODUCT: ['Base', 'Base', 'X']}),
+        'stores': pd.DataFrame({'store_id': ['S1', 'S2', 'S3'], 'City': ['A', 'B', 'C'],
+                                'State': ['FL', 'FL', 'NY'], 'Location': ['South', 'East', 'East']})})
+    assert any("share the name 'Base'" in n for n in notes)
+    assert any('State FL' in n for n in notes) and not any('State NY' in n for n in notes)

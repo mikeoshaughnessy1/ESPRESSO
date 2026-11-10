@@ -32,7 +32,9 @@ TOOLS = {
     'get_monthly_share': {
         'fn': analytics.get_monthly_share,
         'params': {'year', 'filters'},
-        'description': "Each month's revenue as a percent of one year's total.",
+        'description': ("Each month's revenue as a percent of one year's total. With no year, "
+                        "each calendar month as a percent of the all-years total (Power BI's "
+                        "'% of grand total'), plus the average of the yearly shares."),
     },
     'get_satisfaction_vs_revenue': {
         'fn': analytics.get_satisfaction_vs_revenue,
@@ -72,8 +74,10 @@ Rules:
 - Revenue is not profit. Association is not causation.
 - If the data cannot support a conclusion, say so and name the missing information.
 - Copy each number exactly as it appears in the tool result. Do not round or derive new ones.
-- For a decision such as closing a store: give the revenue evidence, then say management would
-  also need operating expenses, store profitability, lease terms, and customer behavior.
+- For a decision such as closing a store: call get_growth with group=store and no store filter,
+  then give that store's percent change and its rank among all stores (the trend, not just a
+  total). Then say management would also need operating expenses, store profitability, lease
+  terms, and customer behavior.
 - A city can have more than one store. Cover every store in that city, one call each.
 - If a question asks for a decline and no group declined, say that no group declined.
 - If no tool fits, say so and do not guess. Repeat every caveat that limits the answer.
@@ -273,6 +277,10 @@ def rules_router(question: str, df):
                                         'rose', 'rise'))
     one_year = C.YEAR in filters and not isinstance(filters[C.YEAR], list)
     how_did = re.search(r'how (did|is|are|has)|perform|doing|compare', q)
+    if limit == 'decision' and group is None and not one_year and C.STORE in filters:
+        # "Should we close Chicago?": rank that store against every store, not just its own trend
+        focus = filters.pop(C.STORE)
+        return limit, 'get_growth', {'group': C.STORE, 'filters': filters, '_focus': focus}
     if group is None and not one_year and (limit == 'decision' or how_did or wants_growth):
         for col in (C.STORE, C.PRODUCT, C.CATEGORY, C.CHANNEL):  # that store's (or item's) trend
             if col in filters:
@@ -293,6 +301,8 @@ def rules_router(question: str, df):
         return limit, 'get_revenue_by', {'group': C.YEAR, 'filters': filters}
     if group == C.MONTH and one_year:
         return limit, 'get_monthly_share', {'year': filters.pop(C.YEAR), 'filters': filters}
+    if group == C.MONTH and C.YEAR not in filters and re.search(r'percent|share|%|portion', q):
+        return limit, 'get_monthly_share', {'year': None, 'filters': filters}
     if group:
         return limit, 'get_revenue_by', {'group': group, 'filters': filters}
     for col, value in filters.items():  # "Compare 2027 and 2028 revenue", "How did Orlando do?"
@@ -399,7 +409,7 @@ def _headline(result: ToolResult) -> str:
                 f"Largest growth: {high[0]} ({high[1]['pct_change']:+.2f}%).{warn}")
     if result.tool == 'get_monthly_share' and v:
         ranked = sorted(v.items(), key=lambda kv: kv[1]['revenue'])
-        return (f"Highest month: {ranked[-1][0]} ({ranked[-1][1]['share_pct']}% of the year). "
+        return (f"Highest month: {ranked[-1][0]} ({ranked[-1][1]['share_pct']}% of {'the year' if 'avg_share_of_own_year_pct' not in ranked[-1][1] else 'all-years revenue'}). "
                 f"Lowest: {ranked[0][0]} ({ranked[0][1]['share_pct']}%).")
     if result.tool == 'get_revenue_by' and v:
         top = max(v.items(), key=lambda kv: kv[1]['revenue'])
@@ -414,6 +424,22 @@ def _headline(result: ToolResult) -> str:
     return ''
 
 
+def _focus_rank(result: ToolResult, focus) -> str:
+    """Where the named store(s) sit among all stores, ranked from largest decline."""
+    ranked = sorted(result.value.items(), key=lambda kv: kv[1]['pct_change'])
+    lines = []
+    for name in (focus if isinstance(focus, list) else [focus]):
+        pos = next((i for i, (k, _) in enumerate(ranked, 1) if k == name), None)
+        if pos:
+            pct = result.value[name]['pct_change']
+            lines.append(f'{name}: {pct:+.2f}% from first to last year, rank {pos} of '
+                         f'{len(ranked)} stores (1 = largest decline).')
+        else:
+            lines.append(f'{name} has no revenue in both the first and last year, so it has no '
+                         'growth figure to rank.')
+    return ' '.join(lines)
+
+
 NO_DATA_SCOPE = 'no data used (no calculation was run)'
 NO_INTERPRETATION = 'No calculation supports an interpretation here.'
 NO_RECOMMENDATION = 'No recommendation is supported by this data.'
@@ -426,20 +452,39 @@ def _fmt_value(result: ToolResult) -> str:
     return json.dumps(v, indent=1, default=str)
 
 
-def untraced_numbers(text: str, log: list) -> list:
-    """Numbers in a model answer that match no tool result, at the precision written.
+def number_check(text: str, log: list) -> tuple[int, list]:
+    """(numbers checked, numbers that match no tool result), at the precision written.
     Whole numbers up to 12 are skipped: they are usually counts or months in a sentence.
+    Plain calendar years (2025, not $2,025) are dates, not claims, so they are skipped too.
     '$7.18 million' and '7.2M' are scaled first. A number matches if a result rounds to it."""
     known = [float(n) for n in re.findall(r'\d+(?:\.\d+)?', json.dumps(log, default=str))]
-    flagged = []
-    for raw, unit in re.findall(r'(\d[\d,]*(?:\.\d+)?)\s*(million|billion|thousand|[mbk]\b)?', text, re.I):
+    checked, flagged = 0, []
+    for dollar, raw, unit in re.findall(r'(\$?)(\d[\d,]*(?:\.\d+)?)\s*(million|billion|thousand|[mbk]\b)?',
+                                        text, re.I):
         scale = SCALES.get(unit.lower()[:1], 1)
         number = float(raw.replace(',', '').rstrip('.') or 0) * scale
         places = len(raw.split('.')[1]) if '.' in raw else 0
+        if not (places or number > 12):
+            continue
+        if not dollar and not unit and re.fullmatch(r'20\d\d', raw):
+            continue
+        checked += 1
         tolerance = 0.5 * 10 ** -places * scale + 1e-9  # float-safe "rounds to"
-        if (places or number > 12) and not any(abs(k - number) <= tolerance for k in known):
+        if not any(abs(k - number) <= tolerance for k in known):
             flagged.append(raw)
-    return flagged
+    return checked, flagged
+
+
+def untraced_numbers(text: str, log: list) -> list:
+    return number_check(text, log)[1]
+
+
+def number_check_line(text: str, log: list) -> str:
+    checked, flagged = number_check(text, log)
+    if flagged:
+        return f'Number check: {len(flagged)} of {checked} numbers match no tool result: {flagged}'
+    return (f'Number check: all {checked} numbers in this answer match a tool result.' if checked
+            else 'Number check: this answer states no figures.')
 
 
 SCALES = {'t': 1e3, 'k': 1e3, 'm': 1e6, 'b': 1e9}
@@ -476,6 +521,7 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
                             'scope': scope,
                             'findings': out['text'], 'interpretation': '', 'next_steps': '',
                             'tool_log': log,
+                            'number_check': number_check_line(out['text'], log),
                             'note': f'Not found in any tool result, so do not rely on: {flagged}'
                             if flagged else ''}
                 except Exception as exc:  # quota, network, bad key: never crash
@@ -490,6 +536,7 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
                 'interpretation': NO_INTERPRETATION, 'next_steps': NO_RECOMMENDATION,
                 'tool_log': log, 'note': note}
 
+    focus = args.pop('_focus', None)
     if 'filters' in args:
         args['filters'] = merge_filters(args['filters'], sidebar_filters)
     result = run_tool(name, args, df, log, survey)
@@ -501,10 +548,14 @@ def answer_question(question: str, df, mode: str = 'rules', sidebar_filters: dic
         head = _headline(result)
         if limit in ('profit', 'forecast'):
             head = f"{LIMITS[limit]} Revenue is shown instead. {head}"
+        if focus and result.tool == 'get_growth' and result.value:
+            head = _focus_rank(result, focus) + (f' {head}' if head else '')
         findings = (f'{head}\n\n' if head else '') + f'{result.definition}:\n\n```\n{_fmt_value(result)}\n```\nRows used: {result.rows_used:,}'
     notes = ([LIMITS[limit]] if limit else []) + result.caveats
     interp = ' '.join(dict.fromkeys(notes))  # drop repeated caveats
     next_steps = (NO_RECOMMENDATION if limit
                   else 'Check this against the dashboard and the validation table.')
     return {'mode': 'Rules-based', 'scope': scope, 'findings': findings,
-            'interpretation': interp, 'next_steps': next_steps, 'tool_log': log, 'note': note}
+            'interpretation': interp, 'next_steps': next_steps, 'tool_log': log, 'note': note,
+            'number_check': 'Number check: rules mode prints figures straight from the tool '
+                            'result, so every number comes from it.'}

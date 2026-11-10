@@ -21,6 +21,31 @@ Notes on the table: the Power BI column is read from the data model inside our .
 - `p07-pbi-dax-total-beans.jpg`: the report has no total card and its labels are rounded, so exact figures come from a DAX query on the same model: total 42,174,440, Beans 5,672,720, 25,200 rows.
 - `p04-pbi-storetype-after-fix.jpg`: exact Website 27,218,880 and Brick & Mortar 14,955,560.
 
+## Two definitions of "monthly share"
+Power BI's chart divides each calendar month (all five years added) by the five-year total. You could also take each month's share of its own year and average the five years. The assistant reports both (`get_monthly_share` with no year). They differ by at most 0.02 percentage points, because every year has almost the same seasonal pattern.
+
+| Month | % of 5-year total (Power BI) | Average % of its own year |
+|---|---|---|
+| Jan | 7.74 | 7.74 |
+| Feb | 3.83 | 3.83 |
+| Mar | 4.44 | 4.44 |
+| Apr | 5.15 | 5.15 |
+| May | 5.72 | 5.72 |
+| Jun | 6.50 | 6.51 |
+| Jul | 6.42 | 6.41 |
+| Aug | 6.45 | 6.44 |
+| Sep | 7.11 | 7.10 |
+| Oct | 8.31 | 8.31 |
+| Nov | 12.71 | 12.73 |
+| Dec | 25.61 | 25.61 |
+
+## Data quality findings in the supplied files
+The Data & quality tab lists these on every load (added Nov 10 2026):
+- Three different products share the name "Base Model" (P11, P15, P19). Grouping by name would merge them, so labels add the category.
+- Florida's two stores are in different regions (SH01 Orlando = South, SH08 Orlando = East), and so are North Carolina's (SH04 Greenville = East, SH19 Raleigh = South).
+- Checked by hand: SH07 Flushing, NY is labeled "Southwest". The app can't know a correct region, so it uses labels as given. Region answers depend on them.
+- The website (SH00) has no survey scores, so it is left out of satisfaction analysis.
+
 ## Independent check
 **What we calculated:** total revenue, revenue by channel, revenue by year, and each month's share of five-year revenue.
 

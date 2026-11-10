@@ -118,6 +118,27 @@ def quality_notes(sales: pd.DataFrame) -> list[str]:
     return notes
 
 
+def label_notes(tables: dict) -> list[str]:
+    """Labels in the lookup files that could mislead a reader. Reported, never changed."""
+    notes = []
+    prods = tables.get('products')
+    if prods is not None and {C.PRODUCT, 'product_id'} <= set(prods.columns):
+        for name, grp in prods.groupby(C.PRODUCT):
+            if len(grp) > 1:
+                notes.append(f"{len(grp)} different products share the name '{name}' "
+                             f"({', '.join(grp['product_id'].astype(str))}). They are kept apart "
+                             'by adding the category to the label.')
+    stores = tables.get('stores')
+    if stores is not None and {'State', 'Location', 'store_id'} <= set(stores.columns):
+        for state, grp in stores.dropna(subset=['State']).groupby('State'):
+            if grp['Location'].nunique() > 1:
+                where = '; '.join(f"{r['store_id']} {r.get('City', '')} = {r['Location']}"
+                                  for _, r in grp.iterrows())
+                notes.append(f'State {state} is in more than one region ({where}). Region '
+                             'labels are used as given.')
+    return notes
+
+
 def build_sales_table(files: dict[str, pd.DataFrame]) -> dict:
     """Returns {'sales', 'survey', 'merges', 'problems', 'tables'}."""
     tables, problems = identify_tables(files)
@@ -144,6 +165,7 @@ def build_sales_table(files: dict[str, pd.DataFrame]) -> dict:
     if 'categories' in tables:
         sales = _lookup(sales, tables['categories'], 'category_id', [C.CATEGORY],
                         'categories', merges, problems)
+    problems.extend(label_notes(tables))
     if 'products' in tables:
         prods = _product_labels(tables['products'], sales)
         sales = _lookup(sales, prods, 'product_id', [C.PRODUCT], 'products', merges, problems)
