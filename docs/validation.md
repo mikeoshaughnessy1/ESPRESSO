@@ -17,7 +17,6 @@ Known discrepancy, now confirmed in the model's relationships: Sales[Store ID] i
 
 Notes on the table: the Power BI column is read from the data model inside our .pbix (Sales table, 25,200 rows, implicit Sum of Revenue; the model has no DAX measures). Confirmed in our own report on Nov 10 2026 (Power BI on the web, fixed model):
 - `p05-pbi-report-revenue-page.jpg`: the report's Revenue Analysis page. Total Revenue by Year shows 7.18M, 8.02M, 8.82M, 8.97M, 9.18M. Percent of Annual Revenue per Month shows December highest (25.61%) and February lowest (3.83%). Total Revenue by Store Type shows Website 27M and Brick & Mortar 15M.
-- `p06-pbi-report-beans-filter.jpg`: the same page with the Category slicer set to Beans. Store type bars read 3.6M and 2.0M (about 5.67M).
 - `p07-pbi-dax-total-beans.jpg`: the report has no total card and its labels are rounded, so exact figures come from a DAX query on the same model: total 42,174,440, Beans 5,672,720, 25,200 rows.
 - `p04-pbi-storetype-after-fix.jpg`: exact Website 27,218,880 and Brick & Mortar 14,955,560.
 
@@ -63,7 +62,7 @@ Our model joins Sales[Store ID] to Survey Results[Survey ID], then Survey Result
 
 Our report's bar chart groups Sum(Sales.Revenue) by E-Presso Stores City, Market, and StoreType, so it depends on that broken path. Sales rows find no match, so the chart should not be able to split revenue correctly.
 
-Fixed Nov 10 2026 in Power BI on the web (our .pbix uploaded to My workspace, edited in the semantic model's Editing mode). The relationship now runs Sales[StoreYear] to Survey Results[Survey ID], many-to-one, single direction, active (p01 before, p02 the edit, p03 after). A DAX query, `EVALUATE SUMMARIZECOLUMNS('E-Presso Stores'[StoreType], "Revenue", SUM(Sales[Revenue]))`, returns Website 27,218,880 and Brick & Mortar 14,955,560, an exact match with the app (p04). The fixed model was then downloaded from Power BI and is saved as `powerbi/POWER_BI-MOS-fixed.pbix`. Read back with pbixray: Sales[StoreYear] to Survey Results[Survey ID] is active, and Sales still has 25,200 rows totaling $42,174,440.
+Fixed Nov 10 2026 in Power BI on the web (our .pbix uploaded to My workspace, edited in the semantic model's Editing mode). The relationship now runs Sales[StoreYear] to Survey Results[Survey ID], many-to-one, single direction, active (p01 before, p03 after). A DAX query, `EVALUATE SUMMARIZECOLUMNS('E-Presso Stores'[StoreType], "Revenue", SUM(Sales[Revenue]))`, returns Website 27,218,880 and Brick & Mortar 14,955,560, an exact match with the app (p04). The fixed model was then downloaded from Power BI and is saved as `powerbi/POWER_BI-MOS-fixed.pbix`. Read back with pbixray: Sales[StoreYear] to Survey Results[Survey ID] is active, and Sales still has 25,200 rows totaling $42,174,440.
 
 The total, year, and month visuals use Sales fields only, so the broken relationship does not affect them. The scatter chart uses Survey ID, Sum of Satisfaction, and Sum of Revenue, so its revenue values depend on the same relationship and should be checked too.
 

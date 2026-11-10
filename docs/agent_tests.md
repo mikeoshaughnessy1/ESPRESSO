@@ -13,7 +13,7 @@ Gemini tool-call screenshots for tests 1 and 2 (Nov 9): `g01`/`g02` (Test 1), `g
 | 5. Updated data | How much revenue did the website generate in 2025? (before and after the $1,000 upload) | get_total_revenue (channel=Website, year=2025) | $3,160,230 before, $3,161,230 after, no code change | $3,160,230 before upload, $3,161,230 after, $3,160,230 after restoring | Pass | None |
 | Extra: fix and retest | Same as Test 2 | get_growth | Growth question with the word "percentage" should go to the growth tool | Before: the new "percent/share" rule ran before the growth rule, so it showed shares. After: growth wording takes priority. Retested live: correct. Regression test `test_assignment_test2_wording_routes_to_growth` added. | Fail, then Pass | agent.py rules_router, commit "Fix: 'percentage revenue decline'..." |
 
-Tool-call log screenshots in `docs/screenshots/`: Test 1 `agent-test1-gemini.png`, Test 2 `agent-test2-gemini.png`, Test 3 `agent-test3-gemini.png`, Test 4 `agent-test4-gemini.png`, Test 5 `agent-test5-before.png`, `-after`, `-restored`. Also `agent-filtered-scope.png`, `agent-unsupported-before-fix.png`, and earlier `test2-live-after-fix.jpg` (rules mode), `test3-gemini-live.jpg`.
+Tool-call log screenshots in `docs/screenshots/`: Test 1 `g01`/`g02`, Test 2 `g03`/`g04`, Test 3 `agent-test3-gemini.png`, Test 4 `agent-test4-gemini.png`, Test 5 `k03` (before) and `k11` (after).
 
 Note: these screenshots were taken before the scope wording changed (it now reads, for example, "Website, 2028 (filtered subset, from the question)"). The numbers are the same; see the Nov 10 live retests at the end of this file.
 
@@ -78,7 +78,7 @@ Second fix, later on Nov 10: retries alone still depend on one model. `agent.py`
 Live retest after that push (Nov 10 2026): the weather question and Tests 1 to 4 were asked once each. All five were answered by Gemini (`gemini-3.1-flash-lite`) on the first try, with the same numbers as before: $6,339,640; SH11 Chicago, IL, -66.81%; profit not calculable, SH00 Website $27,218,880 highest revenue; r = 0.235 over 100 store-years, not causation. The backup models were not needed in this run, so that path is covered by the regression test only.
 
 ## Business-judgment check: "Should E-Presso close its Chicago store?"
-Asked on the live app Nov 10 2026 (Gemini answered). Screenshot `c01-close-chicago-gemini.jpg`.
+Asked on the live app Nov 10 2026 (Gemini answered).
 Answer: scope SH11 Chicago, IL; total revenue $1,751,090 from one tool call; said revenue is not profit and the data can't show profit or loss; listed what management would need: operating expenses, store profitability, lease terms, customer behavior. No recommendation to close.
 Pass on limits. Weak spot we noticed: it reported the five-year total but not the trend. Chicago fell 66.81% from 2025 to 2029 (Test 2), which is the most relevant number for this question. A follow-up question such as "How has Chicago's revenue changed since 2025?" gets it.
 

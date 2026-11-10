@@ -31,11 +31,11 @@ What should not change: Brick & Mortar revenue, years 2026 to 2029, every other 
 | Modified value | 7,780 |
 | Expected total revenue after change | $42,175,440.00 |
 | Actual total revenue after change | $42,175,440 (k04). Banner says "Uploaded data in use", sidebar shows Sales: uploaded, data version changed e06d3923 to 15ee6dbb |
-| Chart that should change, and what you saw | Revenue by year: 2025 bar total went from $7,181,750 to $7,182,750. Other years unchanged (k05, k06). Fig. 01, Website 2025 segment: 3,160,230 -> 3,161,230 in the chart's own data. All 9 other points unchanged. The on-screen label rounds to $7.18M both times, so the exact change is shown in the Validation tables (2025 $7,182,750; Jan 2025 $549,340, up from $548,340). |
-| Filter combinations checked (changed / unchanged) | Changed: Year 2025 $7,182,750 (k05), Website $27,219,880 (k08), Beans $5,673,720 (k09), Website 2025 $3,161,230 (k05 table). Unchanged: Year 2026 $8,016,950 (k06), Brick & Mortar $14,955,560 (k07) |
-| Assistant answer before / after | Gemini mode, "How much revenue did the website generate in 2025?": $3,160,230 before (k02, k03), $3,161,230 after (k10, k11). Same tool call both times: get_total_revenue, year=2025, channel=Website, 240 rows |
+| Chart that should change, and what you saw | Revenue by year: 2025 bar total went from $7,181,750 to $7,182,750. Other years unchanged . Fig. 01, Website 2025 segment: 3,160,230 -> 3,161,230 in the chart's own data. All 9 other points unchanged. The on-screen label rounds to $7.18M both times, so the exact change is shown in the Validation tables (2025 $7,182,750; Jan 2025 $549,340, up from $548,340). |
+| Filter combinations checked (changed / unchanged) | Changed: Year 2025 $7,182,750, Website $27,219,880, Beans $5,673,720, Website 2025 $3,161,230. Unchanged: Year 2026 $8,016,950, Brick & Mortar $14,955,560 (k07) |
+| Assistant answer before / after | Gemini mode, "How much revenue did the website generate in 2025?": $3,160,230 before (k03), $3,161,230 after (k10, k11). Same tool call both times: get_total_revenue, year=2025, channel=Website, 240 rows |
 | Code changes required? | None. Same deployed commit before and after |
-| Original data restored? | Yes. Removed the upload: "Original data restored", sidebar back to Sales: original, $42,174,440, version e06d3923 (k12, k13) |
+| Original data restored? | Yes. Removed the upload: "Original data restored", sidebar back to Sales: original, $42,174,440, version e06d3923 (k12) |
 
 The test was run on the live app on Nov 6 2026 and repeated on Nov 9 2026. The results were the same both times. Every prediction in Step 1 matched. The table above cites the Nov 9 screenshots.
 
@@ -44,8 +44,7 @@ A line-by-line comparison of the Validation page before and after shows only the
 For the Nov 9 run the modified file was built in the browser from the repo's `data/Sales.csv` with only row S0020250101 changed (6780.0 to 7780.0), then dropped into the "Replace data" uploader as `Sales.csv`. Same result as the Excel method below.
 
 Screenshots in `docs/screenshots/`:
-- Nov 6 run: `thousand-1` to `thousand-3` (before), `thousand-4` to `thousand-6` (after), `thousand-7` (restored), and `agent-test5-before`, `agent-test5-after`, `agent-test5-restored`.
-- Nov 9 run: `k01` to `k13`, in order.
+- Nov 9 run: `k01` (before), `k03` (assistant before), `k04` (after), `k07` (Brick & Mortar unchanged), `k10`/`k11` (assistant after), `k12` (restored).
 
 ## How to make the modified file
 1. Download `data/Sales.csv` from GitHub (open it, then the download button).
