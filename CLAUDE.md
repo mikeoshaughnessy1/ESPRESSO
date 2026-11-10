@@ -1,6 +1,6 @@
 # ESPRESSO: E-Presso BI app (MSU BMGT 535, "ADS midterm")
 
-Team project for the AI Business Intelligence Challenge. Due Sun Nov 15, 2026, 11:59 pm.
+Solo project (Mike) for the AI Business Intelligence Challenge. Due Sun Nov 15, 2026, 11:59 pm.
 Live app: https://mikeoshaughnessy1-espresso-streamlit-app-svrb7p.streamlit.app/
 Repo: https://github.com/mikeoshaughnessy1/ESPRESSO (branch main; pushing redeploys the app)
 
@@ -8,7 +8,6 @@ Repo: https://github.com/mikeoshaughnessy1/ESPRESSO (branch main; pushing redepl
 - Explain what you're about to change and why, in plain English. We have to defend this code in an oral check.
 - Small changes, one at a time. Run `pytest` after every change.
 - Show the commit before committing. Don't push unless asked.
-- Each teammate commits from their own GitHub account (it's graded).
 
 ## Hard rules from the assignment (the Project Guide wins over the assignment page)
 - Never hardcode totals, chart values, filter lists, or expected answers. Calculate from loaded data.
@@ -28,4 +27,4 @@ Total $42,174,440. Website $27,218,880. Brick & Mortar $14,955,560. By year: 202
 
 ## Status (update after each session)
 - Done: deployed app, real joins, 6 charts, filters, 6 tools, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite) and a rules fallback. Agent tests 1-5 and the $1,000 test passed live (Nov 6, and again Nov 9: screenshots k01-k13, g01-g04). Power BI figures confirmed from our .pbix model (docs/validation.md). Audit and code-review fixes pushed Nov 10 (see "Fixes found in the audit" in docs/agent_tests.md); run `pytest` for the current test count.
-- To do: on the live app, confirm answers show Language model mode, then spot-check tests 1-5 after the Nov 10 push; screenshot our own Power BI visuals, including the StoreType chart; reflection (our words); contribution table; teammate commits.
+- To do: on the live app, confirm answers show Language model mode, then spot-check tests 1-5 after the Nov 10 push; screenshot our own Power BI visuals, including the StoreType chart; reflection (our words); contribution table.

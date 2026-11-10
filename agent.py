@@ -308,6 +308,24 @@ def rules_router(question: str, df):
 
 
 # ------------------------------------------------------------- LLM router
+
+def _generate_with_retry(client, model, contents, cfg, tries=3, wait=1.5):
+    """Call Gemini. If Google's server is busy (a 5xx ServerError), wait and try again.
+
+    Free-tier models are often overloaded for a second or two. Other errors
+    (bad key, quota) are not retried: they go straight to the rules fallback.
+    """
+    import time
+    from google.genai import errors
+    for attempt in range(tries):
+        try:
+            return client.models.generate_content(model=model, contents=contents, config=cfg)
+        except errors.ServerError:
+            if attempt == tries - 1:
+                raise
+            time.sleep(wait * (attempt + 1))
+
+
 def llm_answer(question: str, df, api_key: str, model: str, sidebar_filters: dict | None,
                log: list, survey=None) -> dict:
     """Option A: Gemini picks tools via function calling. Our code runs them.
@@ -340,7 +358,7 @@ def llm_answer(question: str, df, api_key: str, model: str, sidebar_filters: dic
     contents = [types.Content(role='user', parts=[types.Part(text=question)])]
 
     for _ in range(4):  # at most 4 rounds of tool calls per question
-        resp = client.models.generate_content(model=model, contents=contents, config=cfg)
+        resp = _generate_with_retry(client, model, contents, cfg)
         calls = resp.function_calls or []
         if not calls:
             return {'text': resp.text or 'The model returned no text.', 'used_tools': bool(log)}

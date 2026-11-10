@@ -21,7 +21,7 @@ Original Revenue 6,780. Modified Revenue 7,780 (+1,000). No other cell changes.
 
 What should not change: Brick & Mortar revenue, years 2026 to 2029, every other category, and every other store. The assistant gets the same question before and after: "How much revenue did the website generate in 2025?"
 
-## Step 2. Results on the live app (Nov 6 2026, no code edits, no restart)
+## Step 2. Results on the live app (Nov 6 2026, repeated Nov 9 2026, no code edits, no restart)
 
 | Item | Entry |
 |---|---|
@@ -37,12 +37,15 @@ What should not change: Brick & Mortar revenue, years 2026 to 2029, every other 
 | Code changes required? | None. Same deployed commit before and after |
 | Original data restored? | Yes. Removed the upload: "Original data restored", sidebar back to Sales: original, $42,174,440, version e06d3923 (k12, k13) |
 
-Run on the live app Nov 9 2026. Every prediction in Step 1 matched. Screenshots are `docs/screenshots/k01` to `k13`, in order.
-For this run the modified file was built in the browser from the repo's `data/Sales.csv` with only row S0020250101 changed (6780.0 to 7780.0), then dropped into the "Replace data" uploader as `Sales.csv`. Same result as the Excel method below.
+The test was run on the live app on Nov 6 2026 and repeated on Nov 9 2026. The results were the same both times. Every prediction in Step 1 matched. The table above cites the Nov 9 screenshots.
 
-Every prediction in Step 1 held. A line-by-line comparison of the Validation page before and after shows only the total, Website, 2025, and Jan 2025 figures changed. The modified file differs from the original on one line (`diff`), and that line is the Revenue value.
+A line-by-line comparison of the Validation page before and after shows only the total, Website, 2025, and Jan 2025 figures changed. The modified file differs from the original on one line (`diff`), and that line is the Revenue value.
 
-Screenshots in `docs/screenshots/`: `thousand-1` to `thousand-3` (before), `thousand-4` to `thousand-6` (after), `thousand-7` (restored), and `agent-test5-before`, `-after`, `-restored`.
+For the Nov 9 run the modified file was built in the browser from the repo's `data/Sales.csv` with only row S0020250101 changed (6780.0 to 7780.0), then dropped into the "Replace data" uploader as `Sales.csv`. Same result as the Excel method below.
+
+Screenshots in `docs/screenshots/`:
+- Nov 6 run: `thousand-1` to `thousand-3` (before), `thousand-4` to `thousand-6` (after), `thousand-7` (restored), and `agent-test5-before`, `agent-test5-after`, `agent-test5-restored`.
+- Nov 9 run: `k01` to `k13`, in order.
 
 ## How to make the modified file
 1. Download `data/Sales.csv` from GitHub (open it, then the download button).

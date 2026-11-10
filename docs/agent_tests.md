@@ -60,3 +60,15 @@ Each has a regression test in `tests/test_analytics.py`. TODO: retest live after
 - "Website revenue in 2027" returned a breakdown by channel instead of one number. A named channel value is now a filter, not a group-by.
 - "How did Orlando do?" matched nothing because Orlando has two stores. Now both are shown.
 - A partial last year (one month of 2030) produced a fake -99% growth. Growth now warns when the first and last years have different numbers of months.
+
+## Live spot-check after the Nov 10 push
+Tests 1 to 4 were asked again on the live app on Nov 10 2026. Every number matched the earlier runs. Test 5 was not repeated (it passed live Nov 6 and Nov 9).
+
+| Test | Answer | Mode that answered |
+|---|---|---|
+| 1 | $6,339,640, 240 rows, scope "2028, Website" | First try: rules fallback (Gemini ServerError). Second try: Gemini |
+| 2 | SH11 Chicago, IL, -66.81% | Rules fallback (Gemini ServerError) |
+| 3 | Profit can't be calculated, revenue shown instead. Highest SH00 Website $27,218,880 | Rules fallback (Gemini ServerError) |
+| 4 | r = 0.235 over 100 store-years, not causation, 5 store-years excluded | Rules fallback (Gemini ServerError) |
+
+What we learned: Google's free-tier model was busy and returned a server error on 4 of 5 calls. The fallback worked every time and the numbers were right, because our code does the math in both modes. Fix: `agent.py` now retries a busy-server error up to 3 times with a short wait before falling back. Other errors (bad key, quota) still go straight to the fallback.

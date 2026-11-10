@@ -7,4 +7,3 @@ Describe what we built accurately: Option A, a live Gemini function-calling agen
 | Team member | Main responsibilities | Key calculation or design decision I can explain | Approximate commits |
 |---|---|---|---|
 | Mike O'Shaughnessy | | | |
-| | | | |
