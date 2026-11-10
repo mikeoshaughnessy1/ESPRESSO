@@ -8,8 +8,8 @@ Read this, then open the code and find each thing it mentions. Your professor wi
 2. **Rename.** `config.py` maps the real column names (like `Store ID`) to the names the code uses (`store_id`). If the professor's modified data keeps the same column names, nothing in the code has to change.
 3. **Join.** `data_prep.py` starts with Sales and adds Categories, Products, and Stores with left joins. Every join goes through `check_merge()`, which records the row count and revenue sum before and after. If either changes, the join duplicated or dropped something.
 4. **Calculate.** `analytics.py` has the math. Every function takes the data plus explicit filters and returns the same "tool contract": value, definition, scope, rows used, and caveats.
-5. **Show.** The dashboard tab calls those same functions. So does the assistant. One set of math, used everywhere.
-6. **Ask.** `agent.py` picks which function to run (by keyword rules now, or by Gemini once there's a key), runs it, logs the call, and writes the answer as Findings / Interpretation / Next steps.
+5. **Show.** The Overview calls those same functions (Fig. 3 and the Validation month table group the same loaded rows directly). So does the assistant. One set of math, used everywhere.
+6. **Ask.** `agent.py` picks which function to run (Gemini function calling on the live app, keyword rules if the API fails or no key is set), runs it, logs the call, and writes the answer as Findings / Interpretation / Next steps.
 
 ## Key decisions you should be able to defend
 
@@ -26,15 +26,17 @@ Read this, then open the code and find each thing it mentions. Your professor wi
 
 **Where is total revenue calculated?** `analytics.get_total_revenue`. It sums the Revenue column after applying the filters. Nothing is hardcoded.
 
-**How do you know your joins didn't duplicate revenue?** The merge-check table on the Data tab. Every join kept 25,200 rows and $42,174,440 before and after. Products, Categories, and Stores each have one row per key, so the joins are many-to-one.
+**How do you know your joins didn't duplicate revenue?** The merge-check table on the Data & quality page. Every lookup join kept 25,200 rows and $42,174,440 before and after, and the survey check kept 105 store-years and the same total. Products, Categories, and Stores each have one row per key, so the joins are many-to-one.
 
 **What does "grain" mean?** What one row stands for. Sales = one store, one product, one month. Stores = one store. Survey = one store, one year.
 
-**What happens if I upload data with a new store that isn't in the Stores file?** Revenue still counts in the total. The app warns that the store ID wasn't found (it names it) and that those rows have no channel.
+**What happens if I upload data with a new store that isn't in the Stores file?** Revenue still counts in the total. The app names the store ID that wasn't found, and the Overview says how many dollars have no channel, so the total and the channel figures can be reconciled.
 
 **Why is monthly share different with a filter on?** The denominator is all revenue in scope. Filter to Chicago and December becomes a share of Chicago's revenue, not the company's.
 
-**Can the assistant make up a number?** No. It can only pick from six named functions with allowed parameters. Our code runs the function on the loaded data. The model only explains the result. No eval, no exec, no model-written pandas or SQL. The tool-call log under each answer shows the function, the arguments, and the raw result.
+**Can the assistant make up a number?** It can only pick from six named functions with allowed parameters, and our code runs them on the loaded data. No eval, no exec, no model-written pandas or SQL. The model still writes the sentences, so we cannot promise it never misstates a number. That is why `agent.untraced_numbers` checks every number in the reply against the tool results and shows a warning for any it can't find, and the tool-call log under each answer shows the function, the arguments, and the raw result.
+
+**What if the last year is only partly loaded?** Growth compares only the months found in both the first and last year, and says so. One January in 2030 can't look like a 90% collapse.
 
 **What if Gemini is down or out of quota?** It falls back to the rules-based assistant and says so at the top of the answer. There's also a 15-question limit per session.
 
@@ -51,4 +53,4 @@ Read this, then open the code and find each thing it mentions. Your professor wi
 pip install -r requirements-dev.txt
 pytest
 ```
-26 tests, each on a tiny made-up table where you can check the answer by hand (see `tests/test_analytics.py`).
+Tests use tiny made-up tables where you can check the answer by hand, plus a few that run the real page (see `tests/test_analytics.py`).

@@ -141,7 +141,7 @@ data_label = 'Uploaded: ' + ', '.join(uploaded.values()) if uploaded else 'Origi
 
 
 def top_notices():
-    """Upload banner and data-note link, shown under every masthead."""
+    """Upload banner, shown under every masthead."""
     if uploaded:
         which = ', '.join(f'<b>{k.title()}</b> ({name})' for k, name in uploaded.items())
         T.note(f'<span class="ep-label ep-accent">Uploaded data in use</span><br>'
@@ -173,8 +173,8 @@ if section == SECTIONS[0]:
     T.scope_bar([('Scope', scope), ('Data', data_label), ('Version', data_id)])
     top_notices()
 
-    if total.error:
-        st.error(total.error)
+    if total.error:  # e.g. Website store + Brick & Mortar channel: valid filters, no rows together
+        st.warning(f'{total.error}. Change or clear a filter in the sidebar to see the report.')
         st.stop()
     yearly = analytics.get_revenue_by(sales, C.YEAR, sidebar_filters)
     stats = []
@@ -182,13 +182,20 @@ if section == SECTIONS[0]:
         stats.append((name, T.money_short(v['revenue']), f'{v["share_pct"]:.1f}% share'))
     if not yearly.error and len(yearly.value or {}) > 1:
         ys = sorted(yearly.value, key=int)
-        a, b = yearly.value[ys[0]]['revenue'], yearly.value[ys[-1]]['revenue']
-        stats.append((f'Since {ys[0]}', f'{(b - a) / a * 100:+.1f}%' if a else 'n/a',
-                      f'{ys[-1]} vs {ys[0]}'))
+        # Same growth function as the assistant, so a partial year is compared like for like.
+        change = analytics.get_growth(sales.assign(all_revenue='All'), 'all_revenue', sidebar_filters)
+        same_months = any('found in both years, are compared' in c for c in change.caveats)
+        stats.append((f'Since {ys[0]}', 'n/a' if change.error else f"{change.value['All']['pct_change']:+.1f}%",
+                      f'{ys[-1]} vs {ys[0]}' + (', same months only' if same_months else '')))
     if not month_share.error and month_share.value:
         pk = max(month_share.value.items(), key=lambda kv: kv[1]['revenue'])
         stats.append(('Peak month', MONTHS[int(pk[0]) - 1], f'{pk[1]["share_pct"]:.1f}% of revenue'))
     T.hero('Total revenue', T.money(total.value), f'{total.rows_used:,} line items · revenue, not profit', stats)
+    for col, part in ((C.CHANNEL, by_channel), (C.YEAR, yearly)):  # revenue the charts cannot place
+        gap = total.value - sum(v['revenue'] for v in (part.value or {}).values())
+        if abs(gap) >= 1:
+            T.note(f'{T.money(gap)} of revenue in scope has no {col}. It is in the total but not in '
+                   f'the {col} figures. See Data &amp; quality.')
 
     # ---- Fig 1 + Fig 2: asymmetric pair
     left, right = st.columns([7, 5], gap='large')
@@ -221,7 +228,7 @@ if section == SECTIONS[0]:
 
     # ---- Fig 3: full width
     T.figure_head(3, 'Monthly revenue, year over year',
-                  'Each line is one year: older years in lighter gray, the latest in ink. November and December carry the year.')
+                  'Each line is one year: older years in lighter gray, the latest in ink.')
     monthly = (view.dropna(subset=[C.YEAR, C.MONTH])
                .groupby([C.YEAR, C.MONTH])[C.REVENUE].sum().reset_index())
     if len(monthly):
@@ -334,7 +341,12 @@ elif section == SECTIONS[1]:
         T.html('<p>No missing values, unmatched keys, or duplicates found in the loaded data.</p>')
     dq = analytics.data_quality_report(sales).value
     T.html(f'<p class="ep-meta">Joined sales table: {dq["rows"]:,} rows · {dq["duplicate_rows"]} duplicate rows · '
-           f'{len(dq["columns_with_missing"])} columns with blanks</p>')
+           f'{dq["repeated_sales_ids"]} repeated Sales IDs · {len(dq["columns_with_missing"])} columns with blanks</p>')
+    dates = sales[C.DATE].dropna()
+    if len(dates):
+        T.html(f'<p class="ep-meta">Dates {dates.min():%b %Y} to {dates.max():%b %Y} · '
+               f'{sales[C.STORE].nunique()} stores · {sales[C.PRODUCT].nunique()} products · '
+               f'{sales[C.CATEGORY].nunique()} categories</p>')
 
     T.section('Source tables')
     rows = []
@@ -344,9 +356,10 @@ elif section == SECTIONS[1]:
             continue
         prof = analytics.profile_table(df)
         rows.append({'Table': key.title(), 'File': name, 'Origin': origin, 'Rows': f'{prof["rows"]:,}',
-                     'Columns': prof['columns'], 'Duplicate rows': prof['duplicate_rows'],
+                     'Columns': prof['columns'], 'Missing cells': int(prof['missing']['missing'].sum()),
+                     'Duplicate rows': prof['duplicate_rows'],
                      'One row =': C.SOURCES[key]['grain']})
-    T.table(rows, numeric=('Rows', 'Columns', 'Duplicate rows'))
+    T.table(rows, numeric=('Rows', 'Columns', 'Missing cells', 'Duplicate rows'))
     for name, df in files.items():
         with st.expander(f'Preview · {name}'):
             st.dataframe(df.head(20), hide_index=True)
@@ -354,6 +367,13 @@ elif section == SECTIONS[1]:
             a, b = st.columns(2)
             a.dataframe(prof['missing'])
             b.dataframe(prof['dtypes'])
+
+    T.section('Table relationships')
+    T.table([{'From': 'Sales[Category ID]', 'To': 'Categories[Category ID]', 'Type': 'many to one', 'Gives': 'category'},
+             {'From': 'Sales[Product ID]', 'To': 'Products[Product ID]', 'Type': 'many to one', 'Gives': 'product'},
+             {'From': 'Sales[Store ID]', 'To': 'Stores[ID]', 'Type': 'many to one', 'Gives': 'channel, store label'},
+             {'From': 'Sales[StoreYear]', 'To': 'Survey[Survey ID]', 'Type': 'store x year',
+              'Gives': 'satisfaction; sales are summed to store x year first'}])
 
     T.section('Merge checks')
     T.html('<p class="ep-cap" style="color:#77766F">Every join is checked: if rows or the revenue sum '
@@ -387,7 +407,7 @@ elif section == SECTIONS[2]:
     with right:
         T.section('By month and year')
         piv = sales.pivot_table(index=C.MONTH, columns=C.YEAR, values=C.REVENUE, aggfunc='sum')
-        T.table([{'Month': MONTHS[int(m) - 1], **{str(int(y)): T.money(piv.loc[m, y]) for y in piv.columns}}
+        T.table([{'Month': MONTHS[int(m) - 1], **{str(int(y)): T.money(piv.loc[m, y]) if pd.notna(piv.loc[m, y]) else '–' for y in piv.columns}}
                  for m in piv.index], numeric=tuple(str(int(y)) for y in piv.columns))
     T.html('<p class="ep-meta">Independent check: <code>python docs/independent_check.py</code> '
            'recomputes these from the raw Sales file without any app code.</p>')
@@ -406,9 +426,10 @@ else:
     st.session_state.setdefault('history', [])
     left_q = MAX_QUESTIONS - st.session_state['n_questions']
     T.masthead('E-Presso · Analyst', 'Ask the data',
-               T.escape(agent.CAPABILITIES) + ' Every number in an answer comes from a calculation '
-               'on the loaded data, listed under Method.')
-    T.scope_bar([('Mode', f'Gemini · {model}' if key else 'Rules-based (no API key)'),
+               T.escape(agent.CAPABILITIES) + ' Our code runs every calculation on the loaded data; '
+               'each call is listed under Method. In Gemini mode the model chooses the function '
+               'and writes the words, and any number not found in a result is flagged.')
+    T.scope_bar([('Mode', f'Gemini · {model} (rules-based if the API fails)' if key else 'Rules-based (no API key)'),
                  ('Sidebar scope', scope), ('Questions left', f'{left_q} of {MAX_QUESTIONS}')])
     top_notices()
 
@@ -422,7 +443,7 @@ else:
         """Split a model answer on its **Findings:** / **Interpretation:** / **Next steps:** labels."""
         pieces = re.split(r'\*{0,2}(Findings|Interpretation|Next steps)\s*:\s*\*{0,2}', text)
         if len(pieces) < 3:
-            return [('Answer', text.strip())]
+            return [('Findings', text.strip())]
         return [(pieces[i], pieces[i + 1].strip()) for i in range(1, len(pieces) - 1, 2)]
 
     def fmt(key, val):
@@ -443,8 +464,12 @@ else:
             return [{'': str(k), **{c.replace('_', ' ').title(): fmt(c, x) for c, x in v.items()}}
                     for k, v in items]
         if isinstance(value, dict):
-            return [{'Measure': k.replace('_', ' ').title(), 'Value': fmt(k, v)} for k, v in value.items()
-                    if not isinstance(v, (dict, list))]
+            rows = [{'Measure': k.replace('_', ' ').title(), 'Value': fmt(k, v)} for k, v in value.items()
+                    if not isinstance(v, dict)]
+            for k, v in value.items():  # e.g. blanks per column in the data-quality report
+                if isinstance(v, dict):
+                    rows += [{'Measure': f"{k.replace('_', ' ').title()}: {c}", 'Value': f'{n:,}'} for c, n in v.items()]
+            return rows
         return []
 
     def part(label, body, rows=None):
@@ -485,18 +510,21 @@ else:
             if ans['next_steps']:
                 part('Next steps', ans['next_steps'])
         with st.expander(f"Method · {len(ans['tool_log'])} tool call{'s' if len(ans['tool_log']) != 1 else ''}"):
-            st.json(ans['tool_log'] or 'No tool was called.')
+            if ans['tool_log']:
+                st.json(ans['tool_log'])
+            else:  # st.json on a plain sentence shows a parse error
+                st.caption('No tool was called.')
 
-    question = st.chat_input('Ask a question about the loaded data')
-    if question:
-        if st.session_state['n_questions'] >= MAX_QUESTIONS:
-            st.warning('Question limit reached for this session. Reload the page to start over.')
-        else:
-            st.session_state['n_questions'] += 1
-            with st.spinner('Calculating…'):
-                answer = agent.answer_question(question, sales, mode=mode,
-                                               sidebar_filters=sidebar_filters,
-                                               api_key=key, model=model or 'gemini-3.1-flash-lite',
-                                               survey=built['survey'])
-            st.session_state['history'].append({'question': question, 'answer': answer})
-            st.rerun()
+    if left_q <= 0:
+        st.warning(f'You have used all {MAX_QUESTIONS} questions for this session. '
+                   'Reload the page to start a new session.')
+    question = st.chat_input('Ask a question about the loaded data', disabled=left_q <= 0)
+    if question and left_q > 0:
+        st.session_state['n_questions'] += 1
+        with st.spinner('Calculating…'):
+            answer = agent.answer_question(question, sales, mode=mode,
+                                           sidebar_filters=sidebar_filters,
+                                           api_key=key, model=model or 'gemini-3.1-flash-lite',
+                                           survey=built['survey'])
+        st.session_state['history'].append({'question': question, 'answer': answer})
+        st.rerun()

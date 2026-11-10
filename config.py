@@ -42,7 +42,7 @@ SOURCES = {
     },
     'stores': {         # Support_EX_B_Stores.csv (tab-delimited)
         'match': 'store', 'sheet': 0, 'skiprows': 0,
-        'rename': {'ID': 'store_id', 'StoreType': CHANNEL},
+        'rename': {'ID': 'store_id', 'StoreType': CHANNEL, 'City': 'City', 'State': 'State'},
         'grain': 'one store (SH00 is the website)', 'key': 'store_id',
     },
     'survey': {         # Support_EX_B_Survey.xlsx, sheet "Survey Results"

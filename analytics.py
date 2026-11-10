@@ -23,7 +23,8 @@ def load_table(file_bytes: bytes, filename: str, sheet_name=0, skiprows=0) -> pd
     if name.endswith(EXCEL_EXT):
         return pd.read_excel(buffer, sheet_name=sheet_name, skiprows=skiprows)
     if name.endswith(TEXT_EXT):
-        return pd.read_csv(buffer, sep=None, engine='python', skiprows=skiprows)  # sniffs the delimiter
+        # sep=None sniffs the delimiter; utf-8-sig drops the marker Excel's "CSV UTF-8" adds to the header
+        return pd.read_csv(buffer, sep=None, engine='python', skiprows=skiprows, encoding='utf-8-sig')
     raise ValueError(f'Unsupported file type: {filename}')
 
 
@@ -57,7 +58,10 @@ class ToolResult:
     error: str | None = None
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        out = asdict(self)
+        if out['error'] is None:  # the contract is the six keys; error appears only on failure
+            del out['error']
+        return out
 
 
 def _error(tool: str, message: str, scope: dict | None = None) -> ToolResult:
@@ -67,17 +71,20 @@ def _error(tool: str, message: str, scope: dict | None = None) -> ToolResult:
 
 def _apply_filters(df: pd.DataFrame, filters: dict | None):
     """Validate filters against the LOADED data, then apply them."""
+    subset = df
     for col, wanted in (filters or {}).items():
         if col not in df.columns:
-            return df, f'Unknown column: {col}'
+            return subset, f'Unknown column: {col}'
         wanted_list = list(wanted) if isinstance(wanted, (list, tuple, set)) else [wanted]
         valid = set(df[col].dropna().unique())
         bad = [w for w in wanted_list if w not in valid]
         if bad:
             examples = sorted(map(str, valid))[:20]
-            return df, f'{bad} not found in column {col}. Valid values include: {examples}'
-        df = df[df[col].isin(wanted_list)]
-    return df, None
+            return subset, f'{bad} not found in column {col}. Valid values include: {examples}'
+        subset = subset[subset[col].isin(wanted_list)]
+    if filters and subset.empty:  # each value exists, but not together
+        return subset, f'No rows match this combination of filters: {filters}'
+    return subset, None
 
 
 # ------------------------------------------------------ analytical tools
@@ -133,7 +140,9 @@ def data_quality_report(df: pd.DataFrame) -> ToolResult:
         caveats.append('Missing values may limit conclusions drawn from those columns.')
     return ToolResult(tool='data_quality_report',
                       value={'rows': len(df), 'duplicate_rows': int(df.duplicated().sum()),
-                             'columns_with_missing': missing},
+                             'columns_with_missing': missing,
+                             **({'repeated_sales_ids': int(df['sales_id'].dropna().duplicated().sum())}
+                                if 'sales_id' in df.columns else {})},
                       definition='Counts of duplicate rows and missing values in the loaded table',
                       scope={'filters': 'none (full table)'}, rows_used=len(df), caveats=caveats)
 
@@ -163,7 +172,10 @@ def _revenue_subset(df, filters, tool):
 
 def _missing_note(df, col) -> list:
     n = int(df[col].isna().sum()) if col in df.columns else 0
-    return [f'{n} row(s) with missing {col} were excluded.'] if n else []
+    if not n:
+        return []
+    lost = '' if col == C.REVENUE else f', worth ${df.loc[df[col].isna(), C.REVENUE].sum():,.2f},'
+    return [f'{n} row(s) with missing {col}{lost} were excluded.']
 
 
 def get_total_revenue(df, filters: dict | None = None) -> ToolResult:
@@ -191,16 +203,20 @@ def get_revenue_by(df, group: str, filters: dict | None = None) -> ToolResult:
     totals = clean.groupby(group)[C.REVENUE].sum().round(2)
     grand = float(totals.sum())
     value = {str(k): {'revenue': float(v),
-                      'share_pct': round(float(v) / grand * 100, 2) if grand else None}
+                      'share_pct': round(float(v) / grand * 100, 2) if grand else 0.0}
              for k, v in totals.items()}
-    return ToolResult(name, value, f'Sum of line-item revenue by {group}; share = '
-                      f'group revenue / total revenue in scope', _scope(filters), len(clean),
-                      [REVENUE_CAVEAT] + _missing_note(sub, group) + _missing_note(sub, C.REVENUE))
+    single = [f'Only one {group} is in scope, so its share is 100%.'] if len(value) == 1 else []
+    return ToolResult(name, value, f'Sum of line-item revenue by {group}; share = group revenue / '
+                      f'total revenue in scope with a known {group}', _scope(filters), len(clean),
+                      [REVENUE_CAVEAT] + single + _missing_note(sub, group)
+                      + _missing_note(sub, C.REVENUE))
 
 
 def get_growth(df, group: str, filters: dict | None = None) -> ToolResult:
-    """Percent change in yearly revenue from the first to the last year, per group.
-    Answers 'which store/channel grew or declined the most'."""
+    """Percent change in revenue from the first to the last year, per group.
+    Answers 'which store/channel grew or declined the most'. If the two years cover
+    different months, only the months in both are compared, so a partial year
+    cannot look like a collapse."""
     name = 'get_growth'
     if C.YEAR not in df.columns:
         return _error(name, 'No year column. Check the date column in config.py.')
@@ -212,32 +228,44 @@ def get_growth(df, group: str, filters: dict | None = None) -> ToolResult:
     clean = sub.dropna(subset=[C.REVENUE, group, C.YEAR])
     years = sorted(clean[C.YEAR].unique())
     if len(years) < 2:
-        return _error(name, 'Need at least two years of data in scope to measure growth.',
-                      _scope(filters))
+        return _error(name, 'Need at least two years of data in scope to measure growth. '
+                      'If a Year filter is on, set it to All.', _scope(filters))
     first, last = int(years[0]), int(years[-1])
-    months = clean.groupby(C.YEAR)[C.MONTH].nunique() if C.MONTH in clean.columns else None
     partial_note = None
-    if months is not None and months.get(first) != months.get(last):
-        partial_note = (f'Partial year: {first} has {months.get(first)} month(s) of data and '
-                        f'{last} has {months.get(last)}, so this is not a like-for-like comparison.')
-    pivot = clean.pivot_table(index=group, columns=C.YEAR, values=C.REVENUE, aggfunc='sum')
+    compared = clean
+    if C.MONTH in clean.columns:
+        m_first = set(clean.loc[clean[C.YEAR] == first, C.MONTH].dropna())
+        m_last = set(clean.loc[clean[C.YEAR] == last, C.MONTH].dropna())
+        shared = sorted(int(m) for m in m_first & m_last)
+        if m_first != m_last:
+            partial_note = (f'Partial year: {first} has {len(m_first)} month(s) of data and '
+                            f'{last} has {len(m_last)}. ')
+            if shared:
+                compared = clean[clean[C.MONTH].isin(shared)]
+                partial_note += f'Only month(s) {shared}, found in both years, are compared.'
+            else:
+                partial_note += 'They share no months, so this is not a like-for-like comparison.'
+    pivot = compared.pivot_table(index=group, columns=C.YEAR, values=C.REVENUE, aggfunc='sum')
     value, caveats = {}, [REVENUE_CAVEAT, f'Compares {first} to {last} only; '
                           'years in between are not used.']
     for g, row in pivot.iterrows():
         a, b = row.get(first), row.get(last)
-        if pd.isna(a) or pd.isna(b) or a == 0:
+        if pd.isna(a) or pd.isna(b) or a <= 0:
             caveats.append(f'{g}: no revenue in {first} or {last}, growth not calculated.')
             continue
         value[str(g)] = {f'revenue_{first}': round(float(a), 2),
                          f'revenue_{last}': round(float(b), 2),
                          'pct_change': round((float(b) - float(a)) / float(a) * 100, 2)}
+    if not value:
+        return _error(name, f'Growth could not be calculated: no {group} has revenue in both '
+                      f'{first} and {last}.', _scope(filters))
     if partial_note:
         caveats.insert(0, partial_note)
-    declined = [g for g, v in value.items() if v['pct_change'] < 0]
-    if not declined:
+    caveats += _missing_note(sub, group) + _missing_note(sub, C.YEAR)
+    if not any(v['pct_change'] < 0 for v in value.values()):
         caveats.append(f'No {group} had lower revenue in {last} than in {first}.')
     return ToolResult(name, value, f'(revenue {last} - revenue {first}) / revenue {first} x 100, '
-                      f'by {group}', _scope(filters), len(clean), caveats)
+                      f'by {group}', _scope(filters), len(compared), caveats)
 
 
 def get_monthly_share(df, year: int, filters: dict | None = None) -> ToolResult:
@@ -252,7 +280,7 @@ def get_monthly_share(df, year: int, filters: dict | None = None) -> ToolResult:
     totals = clean.groupby(C.MONTH)[C.REVENUE].sum()
     annual = float(totals.sum())
     value = {int(m): {'revenue': round(float(v), 2),
-                      'share_pct': round(float(v) / annual * 100, 2) if annual else None}
+                      'share_pct': round(float(v) / annual * 100, 2) if annual else 0.0}
              for m, v in totals.items()}
     caveats = [REVENUE_CAVEAT]
     if len(value) < 12:
@@ -279,11 +307,15 @@ def get_satisfaction_vs_revenue(df, survey, filters: dict | None = None) -> Tool
                'Correlation shows the two move together. It does not show that satisfaction '
                'causes revenue; store size and market could drive both.',
                f'{len(joined) - len(usable)} store-year(s) had no satisfaction score '
-               '(e.g. the website) and were excluded.']
+               '(e.g. the website) and were excluded, which limits any conclusion about '
+               'satisfaction.']
     if len(usable) < 3:
         return _error(name, 'Fewer than 3 store-years have both revenue and satisfaction.',
                       _scope(filters))
     r = float(usable[C.SATISFACTION].corr(usable[C.REVENUE]))
+    if pd.isna(r):
+        return _error(name, 'Correlation is undefined: satisfaction or revenue does not vary '
+                      'in this scope.', _scope(filters))
     if rep['changed']:
         caveats.append('Warning: the survey join changed the revenue total.')
     return ToolResult(name, {'pearson_r': round(r, 3), 'store_years': len(usable),

@@ -27,6 +27,5 @@ Repo: https://github.com/mikeoshaughnessy1/ESPRESSO (branch main; pushing redepl
 Total $42,174,440. Website $27,218,880. Brick & Mortar $14,955,560. By year: 2025 7,181,750; 2026 8,016,950; 2027 8,824,720; 2028 8,969,470; 2029 9,181,550.
 
 ## Status (update after each session)
-- Done: deployed app, real joins, 6 charts, filters, 6 tools, rules assistant, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite), 26 tests, agent tests 1-4 passed live in both modes, two fix-and-retests documented.
-- Done Nov 9: Test 5 and the $1,000 test on the live app, screenshots k01-k13. Gemini tool-call screenshots for tests 1 and 2 (g01-g04). Power BI numbers confirmed from our .pbix (docs/validation.md).
-- To do: reflection (our words); contribution table; teammate commits.
+- Done: deployed app, real joins, 6 charts, filters, 6 tools, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite) and a rules fallback. Agent tests 1-5 and the $1,000 test passed live (Nov 6, and again Nov 9: screenshots k01-k13, g01-g04). Power BI figures confirmed from our .pbix model (docs/validation.md). Audit and code-review fixes pushed Nov 10 (see "Fixes found in the audit" in docs/agent_tests.md); run `pytest` for the current test count.
+- To do: on the live app, confirm answers show Language model mode, then spot-check tests 1-5 after the Nov 10 push; screenshot our own Power BI visuals, including the StoreType chart; reflection (our words); contribution table; teammate commits.

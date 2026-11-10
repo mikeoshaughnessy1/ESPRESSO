@@ -1,7 +1,7 @@
 # Grain statements and merge checks
 
 ## Grain
-| Table | Source file / sheet | One row = | Key column(s) | Row count | Contains revenue? |
+| Table | Source file / sheet | One row = ___ | Key column(s) | Row count | Contains revenue? |
 |---|---|---|---|---|---|
 | Sales | Access `Support_EX_B_Sales.accdb`, table Sales (exported to EPresso_Sales.csv) | one store x one product x one month (month-end date) | Sales ID | 25,200 (21 stores x 20 products x 60 months) | Yes |
 | Products | Access table Products (EPresso_Products.csv) | one product | Product ID | 20 | No |
@@ -15,7 +15,7 @@
 | sales + categories on Category ID | 25,200 | 25,200 | 42,174,440 | 42,174,440 | Many-to-one. Each category ID appears once. |
 | sales + products on Product ID | 25,200 | 25,200 | 42,174,440 | 42,174,440 | Many-to-one. |
 | sales + stores on Store ID = ID | 25,200 | 25,200 | 42,174,440 | 42,174,440 | Many-to-one. StoreType gives the channel. |
-| sales (summed to store-year) + survey on StoreYear = Survey ID | 105 | 105 | 42,174,440 | 42,174,440 | Survey is store x year, so sales are summed to store x year first. Never joined to monthly rows. |
+| sales (summed to store-year) + survey on StoreYear = Survey ID | 105 | 105 | 42,174,440 | 42,174,440 | Survey is store x year, so sales are summed to store x year first. Never joined to monthly rows. 5 website store-years match a survey row but have no score. |
 
 ## Data issues found
 - Product name "Base Model" is used by three different products (P11, P15, P19). The app labels them with their category.
@@ -23,4 +23,5 @@
 - Survey sheet has two title rows above the header and years stored as text ("Y2025").
 - The website (SH00) has no satisfaction or interest scores (5 survey rows blank).
 - SH00 has blank City, State, and PostalCode. SH11's phone number is missing a parenthesis. SH07 (Flushing, NY) has Location = "Southwest".
+- A left join can only duplicate revenue if a lookup repeats a key. The app keeps the first row of a repeated key and says so on the Data and quality page.
 - Our Power BI model joined Sales[Store ID] to Survey Results[Survey ID] ("SH01" vs "SH01_25"). Those keys never match. The correct key is Sales[StoreYear].
