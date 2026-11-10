@@ -15,7 +15,11 @@ Known discrepancy, now confirmed in the model's relationships: Sales[Store ID] i
 | Monthly revenue pattern | From the .pbix model: Jan $3,266,270; Feb $1,616,410; Mar $1,873,190; Apr $2,173,470; May $2,411,110; Jun $2,743,370; Jul $2,706,590; Aug $2,718,500; Sep $3,000,500; Oct $3,502,890; Nov $5,361,150; Dec $10,800,990 | December 25.61%, November 12.71%, February lowest at 3.83% of 5-year revenue | Match. Monthly totals are summed across all five years in both. |
 | Additional measure (your choice) | Beans category revenue: $5,672,720 (from the .pbix model) | Beans category revenue: $5,672,720 | Match |
 
-Notes on the table: the Power BI column is read from the data model inside our .pbix (Sales table, 25,200 rows, implicit Sum of Revenue; the model has no DAX measures). It is not read from report visuals. TODO: confirm each figure from a visual in our own report and add a screenshot.
+Notes on the table: the Power BI column is read from the data model inside our .pbix (Sales table, 25,200 rows, implicit Sum of Revenue; the model has no DAX measures). Confirmed in our own report on Nov 10 2026 (Power BI on the web, fixed model):
+- `p05-pbi-report-revenue-page.jpg`: the report's Revenue Analysis page. Total Revenue by Year shows 7.18M, 8.02M, 8.82M, 8.97M, 9.18M. Percent of Annual Revenue per Month shows December highest (25.61%) and February lowest (3.83%). Total Revenue by Store Type shows Website 27M and Brick & Mortar 15M.
+- `p06-pbi-report-beans-filter.jpg`: the same page with the Category slicer set to Beans. Store type bars read 3.6M and 2.0M (about 5.67M).
+- `p07-pbi-dax-total-beans.jpg`: the report has no total card and its labels are rounded, so exact figures come from a DAX query on the same model: total 42,174,440, Beans 5,672,720, 25,200 rows.
+- `p04-pbi-storetype-after-fix.jpg`: exact Website 27,218,880 and Brick & Mortar 14,955,560.
 
 ## Independent check
 **What we calculated:** total revenue, revenue by channel, revenue by year, and each month's share of five-year revenue.
