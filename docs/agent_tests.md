@@ -34,10 +34,10 @@ Rules mode runs when no key is set or the API fails.
 | 4. Analytical judgment | Does higher customer satisfaction cause higher revenue? | get_satisfaction_vs_revenue | Gives the correlation from real data, says correlation is not causation, notes website has no survey scores | r = 0.235 across 100 store-years; says the data shows association, not cause; 5 website store-years excluded | Pass | — |
 | 5. Updated data | How much revenue did the website generate in 2025? (before and after the $1,000 upload) | get_total_revenue, filters year=2025, channel=Website | $3,160,230 before, $3,161,230 after, no code change | Live, Gemini: $3,160,230 -> $3,161,230 -> $3,160,230 after restore. Rules mode, local: same before and after. | Pass | — |
 | Extra 2: Gemini display fix | Which E-Presso store is the most profitable? (Gemini) | — | Dollar amounts readable; one "Findings:" label | Before: "Findings: Findings:" and the two $ amounts rendered as a garbled math formula. After escaping $ outside code blocks and letting the model write its own labels: clean. | Fail, then Pass | streamlit_app.py answer display, commit "Fix answer display..." |
-| Extra 3: unsupported question | What will the weather be in Chicago tomorrow? (Gemini) | none | Says what the assistant can answer (guide section 7); Method panel is clean | Before: the reply only said it had no weather data, and the Method panel showed "Json Parse Error" because a sentence was passed to st.json. After: reply lists what it can calculate; panel says "No tool was called." Passed in pytest and an AppTest walkthrough. TODO: retest live after pushing. | Fail, then Pass (local) | agent.py, streamlit_app.py, regression test `test_llm_answer_with_no_tool_call_says_what_it_can_answer` |
+| Extra 3: unsupported question | What will the weather be in Chicago tomorrow? (Gemini) | none | Says what the assistant can answer (guide section 7); Method panel is clean | Before: the reply only said it had no weather data, and the Method panel showed "Json Parse Error" because a sentence was passed to st.json. After: reply lists what it can calculate; panel says "No tool was called." Passed in pytest and an AppTest walkthrough. Retested live Nov 10 2026 (Gemini): reply said no tool exists for weather and listed what it can calculate; panel showed "0 tool calls". | Fail, then Pass | agent.py, streamlit_app.py, regression test `test_llm_answer_with_no_tool_call_says_what_it_can_answer` |
 
 ## Fixes found in the audit (local, pytest and AppTest; not yet on the live app)
-Each has a regression test in `tests/test_analytics.py`. TODO: retest live after pushing.
+Each has a regression test in `tests/test_analytics.py`. Retested live Nov 10 2026 (see the end of this file).
 
 | Question or data | Before | After |
 |---|---|---|
@@ -72,3 +72,7 @@ Tests 1 to 4 were asked again on the live app on Nov 10 2026. Every number match
 | 4 | r = 0.235 over 100 store-years, not causation, 5 store-years excluded | Rules fallback (Gemini ServerError) |
 
 What we learned: Google's free-tier model was busy and returned a server error on 4 of 5 calls. The fallback worked every time and the numbers were right, because our code does the math in both modes. Fix: `agent.py` now retries a busy-server error up to 3 times with a short wait before falling back. Other errors (bad key, quota) still go straight to the fallback.
+
+Second fix, later on Nov 10: retries alone still depend on one model. `agent.py` now tries two backup Gemini models (`gemini-3.5-flash-lite`, then `gemini-3.6-flash`) before rules mode, and the answer header names the model that replied. Regression test `test_backup_model_answers_when_primary_is_busy`.
+
+Live retest after that push (Nov 10 2026): the weather question and Tests 1 to 4 were asked once each. All five were answered by Gemini (`gemini-3.1-flash-lite`) on the first try, with the same numbers as before: $6,339,640; SH11 Chicago, IL, -66.81%; profit not calculable, SH00 Website $27,218,880 highest revenue; r = 0.235 over 100 store-years, not causation. The backup models were not needed in this run, so that path is covered by the regression test only.
