@@ -1,8 +1,8 @@
 # Reflection (300–500 words)
 
-DRAFT. Still to add: what we built (Option A, live Gemini agent with a rules fallback, free-tier limits). Delete this note before submitting.
-
 I used Claude desktop and Claude Code for this project, and downloaded skills for Claude Code as I got familiar with it. This was my first time vibe coding and building something like this. I coached the AI through the project and learned a lot about how to build and format a Streamlit app through GitHub, and how to organize data through an app.
+
+We built a Streamlit-hosted website with a live Gemini agent that calls our functions to answer questions, with a rules-based backup when the API fails. We used the free tier of the Gemini API, which has limits. When we tested it today, Gemini's server was busy and the backup answered most questions instead. The numbers were still right, but that is a real limit of this setup.
 
 The hardest part was validating that everything was working right, and following the assignment given how complex it is. I also struggled to understand the meaning behind what I was changing, but I got to the original goal anyway.
 
