@@ -27,4 +27,5 @@ Total $42,174,440. Website $27,218,880. Brick & Mortar $14,955,560. By year: 202
 
 ## Status (update after each session)
 - Done: deployed app, real joins, 6 charts, filters, 6 tools, Gemini live with key in Streamlit Secrets (gemini-3.1-flash-lite) and a rules fallback. Agent tests 1-5 and the $1,000 test passed live (Nov 6, and again Nov 9: screenshots k01-k13, g01-g04). Power BI figures confirmed from our .pbix model (docs/validation.md). Audit and code-review fixes pushed Nov 10 (see "Fixes found in the audit" in docs/agent_tests.md); run `pytest` for the current test count.
-- To do: on the live app, confirm answers show Language model mode, then spot-check tests 1-5 after the Nov 10 push; screenshot our own Power BI visuals, including the StoreType chart; reflection (our words); contribution table.
+- Done Nov 10: reflection and contribution row; Power BI relationship fixed online (docs/validation.md, p01-p04).
+- To do: recheck the live app shows Language model (Gemini) mode, since Gemini returned busy-server errors on Nov 10 morning; oral check prep; submit.

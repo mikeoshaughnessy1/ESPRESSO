@@ -32,7 +32,9 @@ Notes on the table: the Power BI column is read from the data model inside our .
 ## Discrepancy investigated: the Power BI store relationship
 Our model joins Sales[Store ID] to Survey Results[Survey ID], then Survey Results[Store ID] to E-Presso Stores[ID]. Sales holds "SH01" and Survey ID holds "SH01_25". Checked in the .pbix: 0 Store ID values match a Survey ID, while all 105 Sales[StoreYear] values do.
 
-Our report's bar chart groups Sum(Sales.Revenue) by E-Presso Stores City, Market, and StoreType, so it depends on that broken path. Sales rows find no match, so the chart should not be able to split revenue correctly. TODO: open the report, record what that chart shows, then repoint the relationship to Sales[StoreYear] and record the Website and Brick & Mortar values again.
+Our report's bar chart groups Sum(Sales.Revenue) by E-Presso Stores City, Market, and StoreType, so it depends on that broken path. Sales rows find no match, so the chart should not be able to split revenue correctly.
+
+Fixed Nov 10 2026 in Power BI on the web (our .pbix uploaded to My workspace, edited in the semantic model's Editing mode). The relationship now runs Sales[StoreYear] to Survey Results[Survey ID], many-to-one, single direction, active (p01 before, p02 the edit, p03 after). A DAX query, `EVALUATE SUMMARIZECOLUMNS('E-Presso Stores'[StoreType], "Revenue", SUM(Sales[Revenue]))`, returns Website 27,218,880 and Brick & Mortar 14,955,560, an exact match with the app (p04). The fix is in the online copy of the model. Our local .pbix file is unchanged.
 
 The total, year, and month visuals use Sales fields only, so the broken relationship does not affect them. The scatter chart uses Survey ID, Sum of Satisfaction, and Sum of Revenue, so its revenue values depend on the same relationship and should be checked too.
 
